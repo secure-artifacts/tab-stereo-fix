@@ -16,28 +16,32 @@ if __package__ in {None, ""}:
 try:
     from desktop.app_volume import set_browser_volume
     from desktop.autostart import is_autostart_on, set_autostart
+    from desktop.paths import config_file
     from desktop.browser_audio_fix import (
         apply_fix,
         default_profile,
         discover_profiles,
+        filter_profiles_by_name,
         group_installs,
         one_install_only,
     )
 except ImportError:  # pragma: no cover
     from app_volume import set_browser_volume
     from autostart import is_autostart_on, set_autostart
+    from paths import config_file
     from browser_audio_fix import (
         apply_fix,
         default_profile,
         discover_profiles,
+        filter_profiles_by_name,
         group_installs,
         one_install_only,
     )
 
 WINDOW_TITLE = "立体声修复 - 选用户"
 OLD_TITLES = (WINDOW_TITLE,)
-STATE_PATH = Path(__file__).resolve().parent.parent / "config" / "ui-state.json"
-ERROR_PATH = Path(__file__).resolve().parent.parent / "config" / "last-error.txt"
+STATE_PATH = config_file("ui-state.json")
+ERROR_PATH = config_file("last-error.txt")
 
 
 def load_ui_state() -> dict:
@@ -97,7 +101,9 @@ class App(tk.Tk):
         self.configure(bg="#f3f6fb")
         self.installs = []
         self.profiles = []
+        self._snapshot = []
         self.choice = tk.StringVar(value="")
+        self.search_var = tk.StringVar(value="")
         self.busy = False
         self._refreshing = False
         self._build()
@@ -148,6 +154,16 @@ class App(tk.Tk):
             font=("Microsoft YaHei UI", 9, "bold"),
         )
         list_wrap.pack(fill="both", expand=True, pady=(10, 8))
+        search_row = tk.Frame(list_wrap, bg="#f3f6fb")
+        search_row.pack(fill="x", padx=8, pady=(8, 0))
+        tk.Label(
+            search_row,
+            text="搜索用户名字",
+            bg="#f3f6fb",
+            font=("Microsoft YaHei UI", 9),
+        ).pack(side="left")
+        ttk.Entry(search_row, textvariable=self.search_var).pack(side="left", fill="x", expand=True, padx=(8, 0))
+        self.search_var.trace_add("write", lambda *_args: self._paint_list())
         canvas = tk.Canvas(list_wrap, bg="#ffffff", highlightthickness=0, height=260)
         scroll = ttk.Scrollbar(list_wrap, orient="vertical", command=canvas.yview)
         self.list_frame = tk.Frame(canvas, bg="#ffffff")
@@ -310,19 +326,12 @@ class App(tk.Tk):
     def _render_profiles(self, profiles, snapshot, last: str) -> None:
         self._refreshing = False
         self.profiles = profiles
+        self._snapshot = snapshot
         self.installs = [item for item, _running, _fixed, _items in snapshot]
         if self.busy:
             return
-        for child in self.list_frame.winfo_children():
-            child.destroy()
         if not profiles:
-            tk.Label(
-                self.list_frame,
-                text="没有找到 Chrome / Edge / Brave。",
-                bg="#ffffff",
-                fg="#64748b",
-                font=("Microsoft YaHei UI", 9),
-            ).pack(anchor="w")
+            self._paint_list()
             self.status.configure(text="没有可处理的浏览器。", bg="#fef3c7", fg="#92400e")
             return
 
@@ -334,8 +343,30 @@ class App(tk.Tk):
             target = default_profile(profiles)
             pick = target.key if target else profiles[0].key
         self.choice.set(pick)
+        self._paint_list()
+        self._on_choice()
 
-        for install, running, fixed, items in snapshot:
+    def _paint_list(self) -> None:
+        if self.busy or not hasattr(self, "list_frame"):
+            return
+        for child in self.list_frame.winfo_children():
+            child.destroy()
+        if not self.profiles:
+            tk.Label(
+                self.list_frame,
+                text="没有找到 Chrome / Edge / Brave。",
+                bg="#ffffff",
+                fg="#64748b",
+                font=("Microsoft YaHei UI", 9),
+            ).pack(anchor="w")
+            return
+
+        visible_keys = {item.key for item in filter_profiles_by_name(self.profiles, self.search_var.get())}
+        shown = 0
+        for install, running, fixed, items in self._snapshot:
+            keep = [item for item in items if item.key in visible_keys]
+            if not keep:
+                continue
             tk.Label(
                 self.list_frame,
                 text=f"{install.browser}（{'正在运行' if running else '未运行'} · {'已修复' if fixed else '未修复'}）",
@@ -344,7 +375,7 @@ class App(tk.Tk):
                 font=("Microsoft YaHei UI", 9, "bold"),
                 anchor="w",
             ).pack(fill="x", pady=(8, 2))
-            for item in items:
+            for item in keep:
                 bits = []
                 bits.append("正在运行" if item.selected else "未运行")
                 bits.append("已修复" if fixed else "未修复")
@@ -356,7 +387,15 @@ class App(tk.Tk):
                     variable=self.choice,
                     command=self._on_choice,
                 ).pack(anchor="w", pady=1)
-        self._on_choice()
+                shown += 1
+        if shown == 0:
+            tk.Label(
+                self.list_frame,
+                text="没有叫这个名字的用户。",
+                bg="#ffffff",
+                fg="#64748b",
+                font=("Microsoft YaHei UI", 9),
+            ).pack(anchor="w", pady=8)
 
     def _on_choice(self) -> None:
         selected = self.selected_profile()

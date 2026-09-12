@@ -7,11 +7,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from autostart import START_BAT, autostart_command, write_autostart_vbs
+from paths import app_root, config_dir
 from browser_audio_fix import (
     BrowserProfile,
     collect_boost_pids,
     collect_install_pids,
     disable_flags,
+    filter_profiles_by_name,
     is_fix_on,
     group_installs,
     mark_running_profiles,
@@ -384,6 +386,33 @@ class PersistLaunchTests(unittest.TestCase):
             )
         )
         self.assertFalse(_is_our_shortcut(r"C:\Program Files\Google\Chrome\Application\chrome.exe", ""))
+
+
+class SearchProfilesTests(unittest.TestCase):
+    def test_filters_by_user_name(self):
+        chrome = Path(r"C:\chrome.exe")
+        data = Path(r"C:\Users\me\Chrome")
+        profiles = [
+            BrowserProfile("Chrome", chrome, data, "Default", "个人"),
+            BrowserProfile("Chrome", chrome, data, "Profile 1", "工作", email="work@example.com"),
+            BrowserProfile("Edge", chrome, data, "Default", "默认用户"),
+        ]
+        found = filter_profiles_by_name(profiles, "工作")
+        self.assertEqual([item.display_name for item in found], ["工作"])
+        found = filter_profiles_by_name(profiles, "WORK@")
+        self.assertEqual([item.display_name for item in found], ["工作"])
+        found = filter_profiles_by_name(profiles, "edge")
+        self.assertEqual([item.display_name for item in found], ["默认用户"])
+        self.assertEqual(len(filter_profiles_by_name(profiles, "")), 3)
+        self.assertEqual(filter_profiles_by_name(profiles, "没有这个"), [])
+
+
+class PathTests(unittest.TestCase):
+    def test_source_root_contains_desktop(self):
+        self.assertTrue((app_root() / "desktop").is_dir())
+
+    def test_source_config_stays_in_repo(self):
+        self.assertEqual(config_dir(), app_root() / "config")
 
 
 class AutostartTests(unittest.TestCase):

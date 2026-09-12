@@ -3,11 +3,17 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+try:
+    from desktop.paths import app_root, config_file, is_frozen
+except ImportError:  # pragma: no cover
+    from paths import app_root, config_file, is_frozen
+
+ROOT = app_root()
 RUN_NAME = "TabStereoFix"
-VBS_PATH = ROOT / "config" / "autostart.vbs"
+VBS_PATH = config_file("autostart.vbs")
 START_BAT = ROOT / "启动立体声修复.bat"
 
 
@@ -16,7 +22,15 @@ def _wscript() -> Path:
     return Path(root) / "System32" / "wscript.exe"
 
 
+def launch_target() -> Path:
+    if is_frozen():
+        return Path(sys.executable).resolve()
+    return START_BAT
+
+
 def autostart_command() -> str:
+    if is_frozen():
+        return f'"{launch_target()}"'
     return f'"{_wscript()}" //nologo "{VBS_PATH}"'
 
 
@@ -65,7 +79,8 @@ def set_autostart(enabled: bool) -> bool:
         return False
     try:
         if enabled:
-            write_autostart_vbs()
+            if not is_frozen():
+                write_autostart_vbs()
             winreg.SetValueEx(key, RUN_NAME, 0, winreg.REG_SZ, autostart_command())
         else:
             try:

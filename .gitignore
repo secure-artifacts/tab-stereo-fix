@@ -18,4 +18,7 @@ launchers/
 __pycache__/
 *.pyc
 dist/
+build/
+*.spec
+*.exe
 node_modules/

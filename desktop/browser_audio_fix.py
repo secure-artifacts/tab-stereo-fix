@@ -13,6 +13,11 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
+try:
+    from desktop.paths import config_file, launcher_dir as default_launcher_dir
+except ImportError:  # pragma: no cover
+    from paths import config_file, launcher_dir as default_launcher_dir
+
 _PROCESS_LOCK = threading.Lock()
 _PROCESS_CACHE: dict = {"at": 0.0, "rows": []}
 
@@ -56,12 +61,12 @@ FLAG_IDS = (
     "msedge-wide-echo-cancellation",
 )
 STATUS_NAME = "Local State.tab-stereo-fix.status"
-STATUS_STORE = Path(__file__).resolve().parent.parent / "config" / "fix-status.json"
-KEEP_PATH = Path(__file__).resolve().parent.parent / "config" / "keep-fixed.json"
-KEEP_PID = Path(__file__).resolve().parent.parent / "config" / "keep-fixed.pid"
+STATUS_STORE = config_file("fix-status.json")
+KEEP_PATH = config_file("keep-fixed.json")
+KEEP_PID = config_file("keep-fixed.pid")
 KEEP_RUN_NAME = "TabStereoFixKeep"
-SHORTCUT_BACKUP = Path(__file__).resolve().parent.parent / "config" / "shortcut-backup.json"
-FIXED_LAUNCHER = Path(__file__).resolve().parent.parent / "launchers" / "launch-fixed.vbs"
+SHORTCUT_BACKUP = config_file("shortcut-backup.json")
+FIXED_LAUNCHER = default_launcher_dir() / "launch-fixed.vbs"
 BROWSER_PROCESSES = ("chrome.exe", "msedge.exe", "brave.exe", "chromium.exe")
 
 INSTALLS = (
@@ -157,6 +162,22 @@ class BrowserProfile:
     def label(self) -> str:
         extra = f" · {self.email}" if self.email else ""
         return f"{self.browser} / {self.display_name}{extra}"
+
+
+def filter_profiles_by_name(profiles: list[BrowserProfile], query: str) -> list[BrowserProfile]:
+    needle = (query or "").strip().casefold()
+    if not needle:
+        return list(profiles)
+    matched: list[BrowserProfile] = []
+    for item in profiles:
+        hay = " ".join(
+            part
+            for part in (item.display_name, item.email, item.browser, item.directory)
+            if part
+        ).casefold()
+        if needle in hay:
+            matched.append(item)
+    return matched
 
 
 def read_json(path: Path) -> dict:
@@ -1377,7 +1398,7 @@ def apply_fix(
     report.warnings.extend(ignored)
     browser = profiles[0].browser
 
-    launcher_dir = launcher_dir or (Path(__file__).resolve().parent.parent / "launchers")
+    launcher_dir = launcher_dir or default_launcher_dir()
     desktop = Path(os.path.expandvars(r"%USERPROFILE%\Desktop"))
 
     if close_first:

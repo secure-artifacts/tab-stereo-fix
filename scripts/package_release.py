@@ -1,4 +1,4 @@
-"""Create the attested zip under dist/."""
+"""Put the attested exe and a zip with the readme under dist/."""
 
 from __future__ import annotations
 
@@ -7,40 +7,32 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SKIP = {"__pycache__", ".git", "config", "dist", ".github"}
-INCLUDE = [
-    "desktop",
-    "extension",
-    "scripts",
-    "启动立体声修复.bat",
-    "一键关闭 Wide AEC.bat",
-    "run-app.bat",
-    "安装开关.bat",
-    "README.md",
-    "安装说明.txt",
-]
+EXE_NAMES = ("立体声修复.exe", "TabStereoFix.exe")
+
+
+def _find_exe(out_dir: Path) -> Path | None:
+    for name in EXE_NAMES:
+        path = out_dir / name
+        if path.is_file():
+            return path
+    return None
 
 
 def main() -> None:
     version = os.environ.get("GITHUB_REF_NAME") or "local"
     out_dir = ROOT / "dist"
     out_dir.mkdir(exist_ok=True)
+    exe = _find_exe(out_dir)
+    if exe is None:
+        raise SystemExit("missing dist/立体声修复.exe — run scripts/build_exe.py first")
     zip_path = out_dir / f"tab-stereo-fix-{version}.zip"
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as archive:
-        for name in INCLUDE:
-            path = ROOT / name
-            if path.is_file():
-                archive.write(path, name)
-                continue
-            if not path.is_dir():
-                continue
-            for file_path in path.rglob("*"):
-                if not file_path.is_file():
-                    continue
-                if any(part in SKIP for part in file_path.parts):
-                    continue
-                archive.write(file_path, file_path.relative_to(ROOT).as_posix())
-    print(zip_path)
+        archive.write(exe, "立体声修复.exe")
+        readme = ROOT / "安装说明.txt"
+        if readme.is_file():
+            archive.write(readme, "安装说明.txt")
+    print(exe.exists(), exe.name.encode("unicode_escape").decode())
+    print(zip_path.name)
 
 
 if __name__ == "__main__":
