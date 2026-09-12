@@ -114,7 +114,7 @@ class App(tk.Tk):
         ).pack(fill="x", padx=16, pady=(14, 2))
         tk.Label(
             header,
-            text="选一个用户，只打开这一个。其它用户和其它浏览器不会被拉起来。不改 VoiceMeeter / CABLE。",
+            text="必须从本软件点「打开」来启动浏览器。从任务栏、开始菜单或桌面图标打开，声音进不了立体声混音。",
             fg="#dbeafe",
             bg="#1d4ed8",
             font=("Microsoft YaHei UI", 9),
@@ -164,9 +164,36 @@ class App(tk.Tk):
         canvas.bind("<Enter>", lambda _event: canvas.bind_all("<MouseWheel>", on_mousewheel))
         canvas.bind("<Leave>", lambda _event: canvas.unbind_all("<MouseWheel>"))
 
+        help_box = tk.LabelFrame(
+            body,
+            text="使用说明",
+            bg="#f3f6fb",
+            font=("Microsoft YaHei UI", 9, "bold"),
+        )
+        help_box.pack(fill="x", pady=(0, 8))
+        tk.Label(
+            help_box,
+            text=(
+                "1. 选一个用户，点「打开（关掉 Wide AEC）」。浏览器必须由本软件启动。\n"
+                "2. 关掉这套浏览器后，不能从任务栏、开始菜单或桌面图标再开。"
+                "那样声音进不了 VoiceMeeter / CABLE / 立体声混音。\n"
+                "3. 要继续用，再打开本软件，选同一用户，再点「打开」。\n"
+                "4. 要恢复原来的回声消除，选同一用户，点「关闭（恢复）」。\n"
+                "5. 只动你选的这一套。其它浏览器不关。不改 VoiceMeeter / CABLE。"
+            ),
+            bg="#fff7ed",
+            fg="#9a3412",
+            font=("Microsoft YaHei UI", 9),
+            justify="left",
+            anchor="w",
+            wraplength=560,
+            padx=10,
+            pady=8,
+        ).pack(fill="x")
+
         self.progress = tk.Label(
             body,
-            text="选好后点「打开」。只打开你选的这个用户。",
+            text="选好后点「打开」。关掉浏览器后，必须再回到这里点「打开」，不要从图标自己开。",
             bg="#f8fafc",
             fg="#334155",
             font=("Microsoft YaHei UI", 9),
@@ -222,8 +249,9 @@ class App(tk.Tk):
             insertbackground="#e2e8f0",
         )
         self.log.pack(fill="both", expand=True)
-        self.log.insert("1.0", "只打开你勾选的那一个用户，不会把同一套里的其它用户一起拉起来。\n")
-        self.log.insert("end", "其它浏览器不关、不改音量。\n")
+        self.log.insert("1.0", "必须从本软件点「打开」启动浏览器。\n")
+        self.log.insert("end", "关掉后再从任务栏/开始菜单/桌面图标打开，声音进不了立体声混音。\n")
+        self.log.insert("end", "只打开你选的那一个用户。其它浏览器不关、不改音量。\n")
         self.log.configure(state="disabled")
 
     def _write_log(self, text: str) -> None:
@@ -346,7 +374,9 @@ class App(tk.Tk):
             bg="#ecfdf3",
             fg="#166534",
         )
-        self._set_progress(f"点「打开」只启动 {selected.label}，不会把其它用户一起打开。")
+        self._set_progress(
+            f"点「打开」启动 {selected.label}。关掉后必须再从本软件打开，从图标自己开声音进不了立体声混音。"
+        )
 
     def _on_gain(self, _value=None) -> None:
         value = int(round(float(self.gain_var.get()) / 25) * 25)
@@ -404,9 +434,11 @@ class App(tk.Tk):
         )
         action = "打开（关掉 Wide AEC）" if enabled else "关闭（恢复原来的回声消除）"
         gain = max(1.0, min(4.0, int(self.gain_var.get()) / 100))
+        remember = ""
         if not messagebox.askyesno(
             action,
-            f"只打开这一个用户：\n· {selected.label}{same_note}{stay}\n\n继续？",
+            f"只打开这一个用户：\n· {selected.label}{same_note}{stay}\n\n"
+            "关掉后再从任务栏或图标打开，声音进不了立体声混音。必须再回到本软件点「打开」。\n\n继续？",
         ):
             return
         self.busy = True
@@ -442,7 +474,7 @@ class App(tk.Tk):
         self._set_progress("已完成。其它浏览器没有动。", ok=True)
         messagebox.showinfo(
             "完成",
-            "已打开。只启动了你选的那个用户。"
+            "已打开。以后这套浏览器关掉了，必须再从本软件点「打开」。从任务栏或图标自己开，声音进不了立体声混音。"
             if enabled
             else "已关闭。这套浏览器恢复原来的回声消除。",
         )

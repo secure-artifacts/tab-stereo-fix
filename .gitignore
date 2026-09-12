@@ -10,6 +10,10 @@ config/ui-state.json
 config/fix-status.json
 config/python.exe.path
 config/last-error.txt
+config/keep-fixed.json
+config/keep-fixed.pid
+config/shortcut-backup.json
+launchers/
 __pycache__/
 *.pyc
 dist/

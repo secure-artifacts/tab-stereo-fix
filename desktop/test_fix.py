@@ -8,11 +8,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from browser_audio_fix import (
     BrowserProfile,
+    collect_boost_pids,
     collect_install_pids,
     disable_flags,
     is_fix_on,
     group_installs,
     mark_running_profiles,
+    merge_disable_features,
+    merge_open_command,
+    _is_our_shortcut,
     one_install_only,
     parse_chrome_arg,
     patch_local_state,
@@ -43,6 +47,8 @@ class DisableFlagsTests(unittest.TestCase):
         self.assertIn("edge-wide-echo-cancellation@2", flags)
         self.assertIn("msedge-wide-echo-cancellation@2", flags)
         self.assertNotIn("chrome-wide-echo-cancellation@1", flags)
+        self.assertFalse(next_data["startup_boost"]["enabled"])
+        self.assertFalse(next_data["background_mode"]["enabled"])
 
     def test_restore_removes_our_flags(self):
         data = disable_flags({"browser": {"enabled_labs_experiments": ["enable-force-dark@1"]}})
@@ -50,6 +56,7 @@ class DisableFlagsTests(unittest.TestCase):
         flags = restored["browser"]["enabled_labs_experiments"]
         self.assertIn("enable-force-dark@1", flags)
         self.assertFalse(any(item.startswith("chrome-wide-echo-cancellation") for item in flags))
+        self.assertTrue(restored["startup_boost"]["enabled"])
 
 
 class LocalStateTests(unittest.TestCase):
@@ -145,6 +152,34 @@ class PidScopeTests(unittest.TestCase):
         pids, warnings = collect_install_pids(profiles, rows=rows)
         self.assertEqual(set(pids), {11, 12})
         self.assertFalse(warnings)
+
+    def test_boost_pid_stays_on_same_install(self):
+        edge = Path(r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe")
+        beta = Path(r"C:\Program Files (x86)\Microsoft\Edge Beta\Application\msedge.exe")
+        edge_data = Path(r"C:\Users\me\AppData\Local\Microsoft\Edge\User Data")
+        beta_data = Path(r"C:\Users\me\AppData\Local\Microsoft\Edge Beta\User Data")
+        rows = [
+            {
+                "pid": 88,
+                "ppid": 1,
+                "name": "msedge.exe",
+                "exe": str(edge),
+                "cmdline": f'"{edge}" --no-startup-window',
+                "user_data": "",
+                "directory": "Default",
+            },
+            {
+                "pid": 89,
+                "ppid": 1,
+                "name": "msedge.exe",
+                "exe": str(beta),
+                "cmdline": f'"{beta}" --no-startup-window',
+                "user_data": "",
+                "directory": "Default",
+            },
+        ]
+        self.assertEqual(collect_boost_pids(beta, beta_data, rows=rows), [89])
+        self.assertEqual(collect_boost_pids(edge, edge_data, rows=rows), [88])
 
     def test_does_not_match_chrome_beta(self):
         chrome = Path(r"C:\Program Files\Google\Chrome\Application\chrome.exe")
@@ -302,6 +337,52 @@ class PidScopeTests(unittest.TestCase):
             data = json.loads(prefs.read_text(encoding="utf-8"))
             self.assertNotIn("aaa", data["extensions"]["settings"])
             self.assertIn("bbb", data["extensions"]["settings"])
+
+
+class PersistLaunchTests(unittest.TestCase):
+    def test_adds_and_removes_feature_flag(self):
+        self.assertEqual(
+            merge_disable_features("", enabled=True),
+            "--disable-features=ChromeWideEchoCancellation",
+        )
+        self.assertEqual(
+            merge_disable_features("--profile-directory=Default", enabled=True),
+            "--profile-directory=Default --disable-features=ChromeWideEchoCancellation",
+        )
+        self.assertEqual(
+            merge_disable_features(
+                "--disable-features=Translate,ChromeWideEchoCancellation",
+                enabled=False,
+            ),
+            "--disable-features=Translate",
+        )
+        self.assertEqual(
+            merge_disable_features("--disable-features=ChromeWideEchoCancellation", enabled=False),
+            "",
+        )
+
+    def test_keeps_existing_disable_features(self):
+        self.assertEqual(
+            merge_disable_features("--disable-features=Translate", enabled=True),
+            "--disable-features=Translate,ChromeWideEchoCancellation",
+        )
+
+    def test_open_command_keeps_url_placeholder(self):
+        command = r'"C:\Program Files\Google\Chrome\Application\chrome.exe" --single-argument %1'
+        on = merge_open_command(command, enabled=True)
+        self.assertIn("--disable-features=ChromeWideEchoCancellation", on)
+        self.assertIn("--single-argument %1", on)
+        off = merge_open_command(on, enabled=False)
+        self.assertEqual(off, command)
+
+    def test_detects_wrapper_shortcut(self):
+        self.assertTrue(
+            _is_our_shortcut(
+                r"C:\Windows\System32\wscript.exe",
+                r'//nologo "D:\redownload\ruanjian\tab-stereo-fix\launchers\launch-fixed.vbs"',
+            )
+        )
+        self.assertFalse(_is_our_shortcut(r"C:\Program Files\Google\Chrome\Application\chrome.exe", ""))
 
 
 if __name__ == "__main__":

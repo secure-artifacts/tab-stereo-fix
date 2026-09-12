@@ -57,6 +57,11 @@ FLAG_IDS = (
 )
 STATUS_NAME = "Local State.tab-stereo-fix.status"
 STATUS_STORE = Path(__file__).resolve().parent.parent / "config" / "fix-status.json"
+KEEP_PATH = Path(__file__).resolve().parent.parent / "config" / "keep-fixed.json"
+KEEP_PID = Path(__file__).resolve().parent.parent / "config" / "keep-fixed.pid"
+KEEP_RUN_NAME = "TabStereoFixKeep"
+SHORTCUT_BACKUP = Path(__file__).resolve().parent.parent / "config" / "shortcut-backup.json"
+FIXED_LAUNCHER = Path(__file__).resolve().parent.parent / "launchers" / "launch-fixed.vbs"
 BROWSER_PROCESSES = ("chrome.exe", "msedge.exe", "brave.exe", "chromium.exe")
 
 INSTALLS = (
@@ -384,6 +389,28 @@ def collect_install_pids(profiles: list[BrowserProfile], rows: list[dict] | None
     return safe, warnings
 
 
+def collect_boost_pids(exe: Path, user_data: Path, rows: list[dict] | None = None) -> list[int]:
+    rows = rows if rows is not None else list_browser_processes()
+    return [
+        int(row["pid"])
+        for row in rows
+        if row.get("pid")
+        and belongs_to_install(row, exe, user_data)
+        and "--no-startup-window" in (row.get("cmdline") or "").lower()
+    ]
+
+
+def install_running_without_fix(exe: Path, user_data: Path, rows: list[dict] | None = None) -> bool:
+    rows = rows if rows is not None else list_browser_processes()
+    needle = FEATURES.lower()
+    return any(
+        belongs_to_install(row, exe, user_data)
+        and is_open_session(row, set())
+        and needle not in (row.get("cmdline") or "").lower()
+        for row in rows
+    )
+
+
 PREFERRED_BROWSERS = ("Chrome", "Edge", "Brave", "Chrome Beta", "Edge Beta")
 
 
@@ -570,7 +597,7 @@ def disable_flags(data: dict, flag_ids: tuple[str, ...] = FLAG_IDS) -> dict:
             kept.append(entry)
             seen.add(entry)
     browser["enabled_labs_experiments"] = kept
-    return data
+    return apply_stay_closed(data, stay_closed=True)
 
 
 def restore_flags(data: dict, flag_ids: tuple[str, ...] = FLAG_IDS) -> dict:
@@ -581,6 +608,21 @@ def restore_flags(data: dict, flag_ids: tuple[str, ...] = FLAG_IDS) -> dict:
         for item in existing
         if not (isinstance(item, str) and item.split("@", 1)[0] in flag_ids)
     ]
+    return apply_stay_closed(data, stay_closed=False)
+
+
+def apply_stay_closed(data: dict, *, stay_closed: bool) -> dict:
+    """Stop Edge/Chrome startup boost so the next click is a real new process."""
+    boost = data.get("startup_boost")
+    if not isinstance(boost, dict):
+        boost = {}
+        data["startup_boost"] = boost
+    boost["enabled"] = not stay_closed
+    background = data.get("background_mode")
+    if not isinstance(background, dict):
+        background = {}
+        data["background_mode"] = background
+    background["enabled"] = not stay_closed
     return data
 
 
@@ -746,38 +788,462 @@ def launch_profile(profile: BrowserProfile, *, fixed: bool = True, gain: float =
     subprocess.Popen(args)
 
 
-def patch_shortcuts() -> list[str]:
-    ps = rf"""
-$ErrorActionPreference = 'SilentlyContinue'
-$flag = '{FEATURE_ARG}'
-$shell = New-Object -ComObject WScript.Shell
-$roots = @(
-  [Environment]::GetFolderPath('Desktop'),
-  [Environment]::GetFolderPath('CommonDesktopDirectory'),
-  [Environment]::GetFolderPath('StartMenu'),
-  [Environment]::GetFolderPath('CommonStartMenu'),
-  Join-Path $env:APPDATA 'Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar'
+_DISABLE_FEATURES_RE = re.compile(
+    r"(?P<prefix>--disable-features(?:=|\s+))(?P<quote>\"?)(?P<values>[^\"\s]*)(?P=quote)",
+    re.I,
 )
-Get-ChildItem -Path $roots -Filter *.lnk -Recurse | Where-Object {{
-  $_.Name -match 'Chrome|Edge|Brave|铬|勇敢'
-}} | ForEach-Object {{
-  $lnk = $shell.CreateShortcut($_.FullName)
-  if ($lnk.TargetPath -notmatch 'chrome|msedge|brave') {{ return }}
-  $args = [string]$lnk.Arguments
-  if ($args -match 'ChromeWideEchoCancellation') {{ return }}
-  $lnk.Arguments = ($args + ' ' + $flag).Trim()
-  $lnk.Save()
-  Write-Output $_.FullName
-}}
-"""
-    result = subprocess.run(
-        ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps],
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="ignore",
+
+
+def merge_disable_features(arguments: str, *, enabled: bool, feature: str = FEATURES) -> str:
+    text = arguments or ""
+    match = _DISABLE_FEATURES_RE.search(text)
+    feature_l = feature.lower()
+    if match:
+        values = [item for item in match.group("values").split(",") if item]
+        has = any(item.lower() == feature_l for item in values)
+        if enabled and has:
+            return text.strip()
+        if enabled:
+            values.append(feature)
+        else:
+            values = [item for item in values if item.lower() != feature_l]
+        start, end = match.span()
+        if values:
+            replacement = f"{match.group('prefix')}{','.join(values)}"
+            return (text[:start] + replacement + text[end:]).strip()
+        return (text[:start] + text[end:]).strip()
+    if enabled:
+        return f"{text} {FEATURE_ARG}".strip()
+    return text.strip()
+
+
+def merge_open_command(command: str, *, enabled: bool) -> str:
+    text = (command or "").strip()
+    if not text:
+        return FEATURE_ARG if enabled else ""
+    if text.startswith('"'):
+        end = text.find('"', 1)
+        if end < 0:
+            return text
+        head = text[: end + 1]
+        rest = text[end + 1 :]
+    else:
+        parts = text.split(None, 1)
+        head = parts[0]
+        rest = parts[1] if len(parts) > 1 else ""
+    merged = merge_disable_features(rest, enabled=enabled)
+    return f"{head} {merged}".strip() if merged else head
+
+
+def _command_matches_exe(command: str, exe: Path) -> bool:
+    found = _exe_from_command(command or "")
+    if not found:
+        return False
+    if _norm_path(found) == _norm_path(exe):
+        return True
+    return _file_name(found) == _file_name(exe) and _product_key(found) == _product_key(exe)
+
+
+def _shortcut_matches_exe(target: str, exe: Path) -> bool:
+    if not target:
+        return False
+    if _norm_path(target) == _norm_path(exe):
+        return True
+    name = _file_name(target)
+    if name in {"chrome_proxy.exe", "msedge_proxy.exe"}:
+        return _product_key(target) == _product_key(exe)
+    return name == _file_name(exe) and _product_key(target) == _product_key(exe)
+
+
+def _shortcut_roots() -> list[Path]:
+    appdata = os.environ.get("APPDATA", "")
+    public = os.environ.get("PUBLIC", "")
+    userprofile = os.environ.get("USERPROFILE", "")
+    programdata = os.environ.get("PROGRAMDATA", "")
+    return [
+        Path(userprofile) / "Desktop" if userprofile else Path(),
+        Path(public) / "Desktop" if public else Path(),
+        Path(appdata) / "Microsoft" / "Windows" / "Start Menu" if appdata else Path(),
+        Path(programdata) / "Microsoft" / "Windows" / "Start Menu" if programdata else Path(),
+        Path(appdata) / "Microsoft" / "Internet Explorer" / "Quick Launch" if appdata else Path(),
+    ]
+
+
+def _run_powershell(script: str, timeout: int = 12) -> str:
+    try:
+        result = subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="ignore",
+            timeout=timeout,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    return (result.stdout or "").strip()
+
+
+def _wscript() -> str:
+    root = os.environ.get("SystemRoot") or r"C:\Windows"
+    return str(Path(root) / "System32" / "wscript.exe")
+
+
+def write_fixed_vbs(profile: BrowserProfile) -> Path:
+    FIXED_LAUNCHER.parent.mkdir(parents=True, exist_ok=True)
+    body = (
+        "Set sh = CreateObject(\"Wscript.Shell\")\r\n"
+        f'sh.Run """{profile.exe}"" --user-data-dir=""{profile.user_data}"" '
+        f'--profile-directory={profile.directory} {FEATURE_ARG}", 1, False\r\n'
     )
-    return [line.strip() for line in (result.stdout or "").splitlines() if line.strip()]
+    FIXED_LAUNCHER.write_text(body, encoding="utf-16")
+    return FIXED_LAUNCHER
+
+
+def _is_our_shortcut(target: str, arguments: str) -> bool:
+    blob = f"{target} {arguments}".lower().replace("\\", "/")
+    return "launch-fixed.vbs" in blob or "tab-stereo-fix" in blob and "wscript" in blob
+
+
+def _load_shortcut_backup() -> dict:
+    if not SHORTCUT_BACKUP.exists():
+        return {}
+    try:
+        data = json.loads(SHORTCUT_BACKUP.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, TypeError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _save_shortcut_backup(data: dict) -> None:
+    SHORTCUT_BACKUP.parent.mkdir(parents=True, exist_ok=True)
+    SHORTCUT_BACKUP.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _list_shortcuts() -> list[dict]:
+    roots = [str(path) for path in _shortcut_roots() if path and path.is_dir()]
+    if not roots:
+        return []
+    listed = _run_powershell(
+        "$ErrorActionPreference='SilentlyContinue';"
+        "$shell=New-Object -ComObject WScript.Shell;"
+        "$roots=@(" + ",".join(f"'{path.replace(chr(39), chr(39)+chr(39))}'" for path in roots) + ");"
+        "Get-ChildItem -LiteralPath $roots -Filter *.lnk -Recurse -ErrorAction SilentlyContinue | ForEach-Object {"
+        "$lnk=$shell.CreateShortcut($_.FullName);"
+        "[PSCustomObject]@{Path=$_.FullName;Target=[string]$lnk.TargetPath;"
+        "Arguments=[string]$lnk.Arguments;Icon=[string]$lnk.IconLocation}"
+        "} | ConvertTo-Json -Compress -Depth 3"
+    )
+    if not listed:
+        return []
+    try:
+        rows = json.loads(listed)
+    except json.JSONDecodeError:
+        return []
+    if isinstance(rows, dict):
+        rows = [rows]
+    return rows
+
+
+def _write_shortcuts(updates: list[dict]) -> None:
+    if not updates:
+        return
+    temp = Path(os.environ.get("TEMP") or ".") / "tab-stereo-fix-shortcuts.json"
+    temp.write_text(json.dumps(updates, ensure_ascii=False), encoding="utf-8")
+    quoted = str(temp).replace("'", "''")
+    try:
+        _run_powershell(
+            "$ErrorActionPreference='SilentlyContinue';"
+            f"$updates=Get-Content -LiteralPath '{quoted}' -Raw -Encoding UTF8 | ConvertFrom-Json;"
+            "if ($updates -isnot [System.Array]) { $updates = @($updates) };"
+            "$shell=New-Object -ComObject WScript.Shell;"
+            "foreach ($item in $updates) {"
+            "$lnk=$shell.CreateShortcut($item.Path);"
+            "if ($item.Target) { $lnk.TargetPath=[string]$item.Target };"
+            "$lnk.Arguments=[string]$item.Arguments;"
+            "if ($item.Icon) { $lnk.IconLocation=[string]$item.Icon };"
+            "$lnk.Save()"
+            "}"
+        )
+    finally:
+        try:
+            temp.unlink()
+        except OSError:
+            pass
+
+
+def patch_install_shortcuts(exe: Path, *, enabled: bool, launcher: Path | None = None) -> list[str]:
+    rows = _list_shortcuts()
+    backup = _load_shortcut_backup()
+    updates = []
+    changed: list[str] = []
+    wscript = _wscript()
+    launcher_args = f'//nologo "{launcher}"' if launcher else ""
+    for row in rows:
+        path = str(row.get("Path") or "")
+        target = str(row.get("Target") or "")
+        arguments = str(row.get("Arguments") or "")
+        ours = _is_our_shortcut(target, arguments) or path in backup
+        if not ours and not _shortcut_matches_exe(target, exe):
+            continue
+        if enabled:
+            if path not in backup:
+                backup[path] = {
+                    "Target": target,
+                    "Arguments": arguments,
+                    "Icon": str(row.get("Icon") or ""),
+                }
+            if not launcher:
+                continue
+            updates.append(
+                {
+                    "Path": path,
+                    "Target": wscript,
+                    "Arguments": launcher_args,
+                    "Icon": f"{exe},0",
+                }
+            )
+            changed.append(path)
+        else:
+            original = backup.get(path) or {}
+            updates.append(
+                {
+                    "Path": path,
+                    "Target": original.get("Target") or str(exe),
+                    "Arguments": merge_disable_features(str(original.get("Arguments") or arguments), enabled=False),
+                    "Icon": original.get("Icon") or f"{exe},0",
+                }
+            )
+            changed.append(path)
+    if enabled:
+        _save_shortcut_backup(backup)
+    elif backup:
+        try:
+            SHORTCUT_BACKUP.unlink()
+        except OSError:
+            pass
+    try:
+        _write_shortcuts(updates)
+    except OSError:
+        return []
+    return changed
+
+
+_OPEN_KEY_ROOTS = (
+    r"Software\Classes\http",
+    r"Software\Classes\https",
+    r"Software\Classes\ChromeHTML",
+    r"Software\Classes\ChromeHTM",
+    r"Software\Classes\ChromeBHTML",
+    r"Software\Classes\ChromeBetaHTML",
+    r"Software\Classes\MSEdgeHTM",
+    r"Software\Classes\MSEdgeBHTML",
+    r"Software\Classes\MSEdgeBetaHTM",
+    r"Software\Classes\MSEdgePDF",
+    r"Software\Classes\MSEdgeMHT",
+    r"Software\Classes\BraveHTML",
+    r"Software\Classes\Applications\chrome.exe",
+    r"Software\Classes\Applications\msedge.exe",
+    r"Software\Classes\Applications\brave.exe",
+    r"Software\Clients\StartMenuInternet",
+)
+
+
+def _walk_command_keys(root, subkey: str, depth: int = 0):
+    if depth > 6:
+        return
+    try:
+        import winreg
+    except ImportError:
+        return
+    try:
+        key = winreg.OpenKey(root, subkey)
+    except OSError:
+        return
+    try:
+        index = 0
+        while True:
+            name = winreg.EnumKey(key, index)
+            index += 1
+            path = f"{subkey}\\{name}"
+            if name.lower() == "command":
+                yield path
+            else:
+                yield from _walk_command_keys(root, path, depth + 1)
+    except OSError:
+        return
+    finally:
+        try:
+            winreg.CloseKey(key)
+        except OSError:
+            pass
+
+
+def patch_install_open_commands(exe: Path, *, enabled: bool) -> list[str]:
+    try:
+        import winreg
+    except ImportError:
+        return []
+    changed: list[str] = []
+    for base in _OPEN_KEY_ROOTS:
+        for path in _walk_command_keys(winreg.HKEY_CURRENT_USER, base):
+            try:
+                key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, path, 0, winreg.KEY_READ | winreg.KEY_SET_VALUE)
+            except OSError:
+                continue
+            try:
+                command, kind = winreg.QueryValueEx(key, None)
+            except OSError:
+                winreg.CloseKey(key)
+                continue
+            if kind not in {winreg.REG_SZ, winreg.REG_EXPAND_SZ} or not _command_matches_exe(str(command), exe):
+                winreg.CloseKey(key)
+                continue
+            next_command = merge_open_command(str(command), enabled=enabled)
+            if next_command != str(command).strip():
+                try:
+                    winreg.SetValueEx(key, None, 0, kind, next_command)
+                    changed.append(path)
+                except OSError:
+                    pass
+            winreg.CloseKey(key)
+    return changed
+
+
+def persist_install_launch(profile: BrowserProfile, *, enabled: bool) -> list[str]:
+    launcher = write_fixed_vbs(profile) if enabled else None
+    notes = []
+    notes.extend(patch_install_shortcuts(profile.exe, enabled=enabled, launcher=launcher))
+    notes.extend(patch_install_open_commands(profile.exe, enabled=enabled))
+    return notes
+
+
+def write_keep_target(profile: BrowserProfile | None, *, enabled: bool, start: bool = True) -> None:
+    KEEP_PATH.parent.mkdir(parents=True, exist_ok=True)
+    if not enabled or profile is None:
+        try:
+            KEEP_PATH.unlink()
+        except OSError:
+            pass
+        set_run_at_login(False)
+        stop_keeper()
+        return
+    KEEP_PATH.write_text(
+        json.dumps(
+            {
+                "exe": str(profile.exe),
+                "user_data": str(profile.user_data),
+                "directory": profile.directory,
+                "browser": profile.browser,
+                "display_name": profile.display_name,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    set_run_at_login(False)
+    stop_keeper()
+
+
+def load_keep_target() -> dict | None:
+    if not KEEP_PATH.exists():
+        return None
+    try:
+        data = json.loads(KEEP_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, TypeError):
+        return None
+    return data if isinstance(data, dict) and data.get("exe") and data.get("user_data") else None
+
+
+def keep_profile_from_target(data: dict) -> BrowserProfile:
+    return BrowserProfile(
+        browser=str(data.get("browser") or "Chrome"),
+        exe=Path(str(data["exe"])),
+        user_data=Path(str(data["user_data"])),
+        directory=str(data.get("directory") or "Default"),
+        display_name=str(data.get("display_name") or "默认用户"),
+    )
+
+
+def _keeper_python() -> Path:
+    exe = Path(sys.executable)
+    if exe.name.lower() == "python.exe":
+        pythonw = exe.with_name("pythonw.exe")
+        if pythonw.is_file():
+            return pythonw
+    return exe
+
+
+def set_run_at_login(enabled: bool) -> None:
+    try:
+        import winreg
+    except ImportError:
+        return
+    path = r"Software\Microsoft\Windows\CurrentVersion\Run"
+    try:
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, path, 0, winreg.KEY_SET_VALUE)
+    except OSError:
+        return
+    try:
+        if enabled:
+            script = Path(__file__).resolve().parent / "keep_fixed.py"
+            command = f'"{_keeper_python()}" "{script}"'
+            winreg.SetValueEx(key, KEEP_RUN_NAME, 0, winreg.REG_SZ, command)
+        else:
+            try:
+                winreg.DeleteValue(key, KEEP_RUN_NAME)
+            except OSError:
+                pass
+    finally:
+        winreg.CloseKey(key)
+
+
+def keeper_is_running() -> bool:
+    if not KEEP_PID.exists():
+        return False
+    try:
+        pid = int(KEEP_PID.read_text(encoding="utf-8").strip())
+    except (OSError, ValueError):
+        return False
+    return _pid_alive(pid)
+
+
+def start_keeper() -> None:
+    if keeper_is_running():
+        return
+    script = Path(__file__).resolve().parent / "keep_fixed.py"
+    flags = 0x08000000 if os.name == "nt" else 0
+    process = subprocess.Popen(
+        [str(_keeper_python()), str(script)],
+        cwd=str(script.resolve().parent.parent),
+        creationflags=flags,
+    )
+    try:
+        KEEP_PID.parent.mkdir(parents=True, exist_ok=True)
+        KEEP_PID.write_text(str(process.pid), encoding="utf-8")
+    except OSError:
+        pass
+
+
+def stop_keeper() -> None:
+    if not KEEP_PID.exists():
+        return
+    try:
+        pid = int(KEEP_PID.read_text(encoding="utf-8").strip())
+    except (OSError, ValueError):
+        pid = 0
+    if pid and _pid_alive(pid):
+        subprocess.run(["taskkill", "/PID", str(pid)], check=False, capture_output=True, text=True)
+        wait_pids_closed([pid], 4)
+    try:
+        KEEP_PID.unlink()
+    except OSError:
+        pass
+
+
+def patch_shortcuts() -> list[str]:
+    return []
 
 
 @dataclass
@@ -926,6 +1392,9 @@ def apply_fix(
                 return report
             time.sleep(0.4)
 
+    if not enabled:
+        write_keep_target(None, enabled=False)
+
     note(f"正在写入 {browser} 的设置…")
     for user_data in unique_user_data(profiles):
         try:
@@ -944,8 +1413,17 @@ def apply_fix(
         if not enabled and flags_disabled(user_data):
             report.warnings.append(f"{browser} 的实验项还在，已按关闭处理。")
 
-    if patch_links:
-        report.warnings.append("已跳过改快捷方式，避免影响其它浏览器。")
+    note(f"正在记住 {browser} 的启动方式…")
+    persisted = persist_install_launch(profiles[0], enabled=enabled)
+    report.shortcuts.extend(persisted)
+    if enabled and not persisted:
+        report.warnings.append("没找到这套浏览器的图标。请从开始菜单把这套浏览器重新固定到任务栏后再点一次「打开」。")
+    elif enabled:
+        report.warnings.append("已把这套浏览器的图标改成带修复启动。关掉后再从任务栏打开也会带修复。")
+    else:
+        report.warnings.append("已恢复这套浏览器原来的图标。")
+    if enabled:
+        write_keep_target(None, enabled=False)
 
     if enabled and desktop_copies:
         for profile in profiles:
