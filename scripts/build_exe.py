@@ -2,17 +2,21 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 EXE_NAME = "立体声修复"
+ICON = ROOT / "desktop" / "assets" / "app.ico"
+ASSETS = ROOT / "desktop" / "assets"
 
 
 def main() -> None:
     dist = ROOT / "dist"
     dist.mkdir(exist_ok=True)
+    sep = ";" if os.name == "nt" else ":"
     command = [
         sys.executable,
         "-m",
@@ -31,6 +35,8 @@ def main() -> None:
         str(ROOT / "build" / "pyinstaller"),
         "--specpath",
         str(ROOT / "build"),
+        "--add-data",
+        f"{ASSETS}{sep}desktop/assets",
         "--hidden-import",
         "desktop.app",
         "--hidden-import",
@@ -47,8 +53,10 @@ def main() -> None:
         "comtypes",
         "--hidden-import",
         "comtypes.stream",
-        str(ROOT / "desktop" / "app.py"),
     ]
+    if ICON.is_file():
+        command.extend(["--icon", str(ICON)])
+    command.append(str(ROOT / "desktop" / "app.py"))
     subprocess.check_call(command)
     exe = dist / f"{EXE_NAME}.exe"
     if not exe.is_file():

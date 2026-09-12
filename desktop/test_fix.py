@@ -7,7 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from autostart import START_BAT, autostart_command, write_autostart_vbs
-from paths import app_root, config_dir
+from paths import app_root, asset_file, config_dir
 from browser_audio_fix import (
     BrowserProfile,
     collect_boost_pids,
@@ -413,6 +413,10 @@ class PathTests(unittest.TestCase):
 
     def test_source_config_stays_in_repo(self):
         self.assertEqual(config_dir(), app_root() / "config")
+
+    def test_app_icon_assets_exist(self):
+        self.assertTrue(asset_file("app.ico").is_file())
+        self.assertTrue(asset_file("app-48.png").is_file())
 
 
 class AutostartTests(unittest.TestCase):

@@ -31,3 +31,19 @@ def launcher_dir() -> Path:
     if is_frozen():
         return config_dir() / "launchers"
     return app_root() / "launchers"
+
+
+def asset_file(name: str) -> Path:
+    here = Path(__file__).resolve().parent / "assets" / name
+    if here.is_file():
+        return here
+    if is_frozen():
+        meipass = Path(getattr(sys, "_MEIPASS", app_root()))
+        for candidate in (
+            meipass / "desktop" / "assets" / name,
+            meipass / "assets" / name,
+            app_root() / "desktop" / "assets" / name,
+        ):
+            if candidate.is_file():
+                return candidate
+    return here

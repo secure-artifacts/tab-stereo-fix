@@ -16,7 +16,7 @@ if __package__ in {None, ""}:
 try:
     from desktop.app_volume import set_browser_volume
     from desktop.autostart import is_autostart_on, set_autostart
-    from desktop.paths import config_file
+    from desktop.paths import asset_file, config_file
     from desktop.browser_audio_fix import (
         apply_fix,
         default_profile,
@@ -28,7 +28,7 @@ try:
 except ImportError:  # pragma: no cover
     from app_volume import set_browser_volume
     from autostart import is_autostart_on, set_autostart
-    from paths import config_file
+    from paths import asset_file, config_file
     from browser_audio_fix import (
         apply_fix,
         default_profile,
@@ -106,20 +106,52 @@ class App(tk.Tk):
         self.search_var = tk.StringVar(value="")
         self.busy = False
         self._refreshing = False
+        self._icon_photos = []
+        self._apply_app_icon()
         self._build()
         self.after(80, self.refresh)
+
+    def _load_photo(self, name: str):
+        path = asset_file(name)
+        if not path.is_file():
+            return None
+        try:
+            photo = tk.PhotoImage(file=str(path))
+        except tk.TclError:
+            return None
+        self._icon_photos.append(photo)
+        return photo
+
+    def _apply_app_icon(self) -> None:
+        ico = asset_file("app.ico")
+        if ico.is_file():
+            try:
+                self.iconbitmap(default=str(ico))
+            except tk.TclError:
+                pass
+        photo = self._load_photo("app-48.png") or self._load_photo("app.png")
+        if photo is not None:
+            try:
+                self.iconphoto(True, photo)
+            except tk.TclError:
+                pass
 
     def _build(self) -> None:
         header = tk.Frame(self, bg="#1d4ed8")
         header.pack(fill="x")
+        title_row = tk.Frame(header, bg="#1d4ed8")
+        title_row.pack(fill="x", padx=16, pady=(14, 2))
+        avatar = self._load_photo("app-48.png")
+        if avatar is not None:
+            tk.Label(title_row, image=avatar, bg="#1d4ed8").pack(side="left", padx=(0, 10))
         tk.Label(
-            header,
+            title_row,
             text="立体声修复",
             fg="white",
             bg="#1d4ed8",
             font=("Microsoft YaHei UI", 16, "bold"),
             anchor="w",
-        ).pack(fill="x", padx=16, pady=(14, 2))
+        ).pack(side="left", fill="x", expand=True)
         tk.Label(
             header,
             text="关掉 Wide AEC，让浏览器声音进入 VoiceMeeter / VoiceMeeter AUX / CABLE / Line 1。必须从本软件点「打开」来启动浏览器。",
