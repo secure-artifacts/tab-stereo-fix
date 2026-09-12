@@ -348,7 +348,7 @@ def pids_for_install(exe: Path, user_data: Path, rows: list[dict] | None = None)
             pid = row.get("pid")
             if not pid or pid in wanted or row.get("ppid") not in wanted:
                 continue
-            if (row.get("name") or "").lower() != exe.name.lower():
+            if (row.get("name") or "").lower() != _file_name(exe):
                 continue
             if row.get("exe") and not _same_exe(row, exe):
                 continue
@@ -359,7 +359,7 @@ def pids_for_install(exe: Path, user_data: Path, rows: list[dict] | None = None)
 
 def collect_install_pids(profiles: list[BrowserProfile], rows: list[dict] | None = None) -> tuple[list[int], list[str]]:
     rows = rows if rows is not None else list_browser_processes()
-    allowed_names = {item.exe.name.lower() for item in profiles}
+    allowed_names = {_file_name(item.exe) for item in profiles}
     allowed_exes = {_norm_path(item.exe) for item in profiles}
     pids: list[int] = []
     for user_data in unique_user_data(profiles):
