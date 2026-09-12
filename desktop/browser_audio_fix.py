@@ -277,7 +277,12 @@ def process_command_lines() -> list[str]:
 def _norm_path(path) -> str:
     if not path:
         return ""
-    return os.path.normcase(os.path.normpath(str(path).strip().strip('"')))
+    text = str(path).strip().strip('"').replace("\\", "/")
+    return os.path.normcase(os.path.normpath(text))
+
+
+def _file_name(path) -> str:
+    return Path(_norm_path(path).replace("\\", "/")).name.lower()
 
 
 def _row_user_data(row: dict) -> str:
@@ -288,16 +293,16 @@ def _row_user_data(row: dict) -> str:
 
 
 def _product_key(path) -> str:
-    lower = _norm_path(path)
+    lower = _norm_path(path).replace("\\", "/").lower()
     if "chrome beta" in lower:
         return "chrome-beta"
     if "edge beta" in lower:
         return "edge-beta"
-    if "bravesoftware" in lower or "\\brave" in lower:
+    if "bravesoftware" in lower or "/brave/" in lower or lower.endswith("/brave"):
         return "brave"
-    if "\\microsoft\\edge" in lower or "\\edge\\" in lower:
+    if "/microsoft/edge" in lower or "/edge/" in lower:
         return "edge"
-    if "\\google\\chrome" in lower or "\\chrome\\" in lower:
+    if "/google/chrome" in lower or "/chrome/" in lower:
         return "chrome"
     return Path(lower).name.lower()
 
@@ -317,7 +322,7 @@ def _same_product(row: dict, exe: Path) -> bool:
 
 
 def belongs_to_install(row: dict, exe: Path, user_data: Path) -> bool:
-    if (row.get("name") or "").lower() != exe.name.lower():
+    if (row.get("name") or "").lower() != _file_name(exe):
         return False
     row_data = _row_user_data(row)
     if row_data:
