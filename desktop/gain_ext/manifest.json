@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "立体声增益",
+  "version": "1.0.0",
+  "description": "只给软件打开的这套浏览器加大网页声音。",
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["gain-config.js", "volume-boost.js"],
+      "run_at": "document_start",
+      "all_frames": true,
+      "world": "MAIN"
+    }
+  ]
+}

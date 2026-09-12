@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>立体声修复测试页</title>
+    <style>
+      :root { color-scheme: light; font-family: "Segoe UI", "Microsoft YaHei UI", sans-serif; }
+      body { margin: 0; background: #f3f6fb; color: #102033; }
+      main { max-width: 760px; margin: 0 auto; padding: 32px 20px 48px; line-height: 1.6; }
+      h1 { margin: 0 0 8px; }
+      .lead { color: #475569; }
+      .card { margin-top: 16px; background: #fff; border: 1px solid #d7e2ee; border-radius: 14px; padding: 16px 18px; }
+      button { border: 0; border-radius: 8px; padding: 8px 12px; background: #1d4ed8; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+      pre { overflow: auto; background: #0f172a; color: #e2e8f0; border-radius: 10px; padding: 12px; font-size: 12px; }
+      .ok { color: #166534; }
+      .bad { color: #991b1b; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>立体声修复测试页</h1>
+      <p class="lead">先看约束有没有被改掉。需要的话再申请一次麦克风，确认浏览器实际拿到的也是关闭回声消除。</p>
+
+      <section class="card">
+        <h2>模拟网页申请（不碰麦克风）</h2>
+        <p id="dry-status" class="ok">检查中…</p>
+        <pre id="dry-out"></pre>
+      </section>
+
+      <section class="card">
+        <h2>真实麦克风申请</h2>
+        <p>只会在本页向你申请麦克风，用来读取 <code>getSettings()</code>。可以立刻关掉。</p>
+        <button id="live" type="button">申请麦克风并查看设置</button>
+        <p id="live-status"></p>
+        <pre id="live-out"></pre>
+      </section>
+    </main>
+    <script src="constraints.js"></script>
+    <script src="inject.js"></script>
+    <script src="test-page.js"></script>
+  </body>
+</html>

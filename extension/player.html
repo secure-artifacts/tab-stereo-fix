@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>声音输出</title>
+    <link rel="stylesheet" href="popup.css" />
+    <style>
+      body { width: auto; min-width: 380px; }
+      .found { margin-top: 8px; font-size: 12px; }
+      .found div { margin: 4px 0; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>声音输出</h1>
+        <p>这个窗口负责把当前浏览器用户的声音直接打到 CABLE / VoiceMeeter。关掉窗口就停止。</p>
+      </div>
+    </header>
+
+    <section class="card">
+      <div class="kicker">先点这里选去哪</div>
+      <div id="sinks" class="sink-buttons">
+        <button type="button" data-kind="default">默认设备</button>
+        <button type="button" data-kind="cable" class="on">CABLE</button>
+        <button type="button" data-kind="voicemeeter" class="on">VoiceMeeter</button>
+        <button type="button" data-kind="voicemeeter-aux">VoiceMeeter Aux</button>
+      </div>
+      <button id="apply" type="button" style="width:100%;margin-top:10px;background:#1d4ed8;color:#fff">应用到这些设备</button>
+      <div id="found" class="found"></div>
+    </section>
+
+    <section class="card">
+      <div class="kicker">状态</div>
+      <div id="status" class="status warn">正在列出本机的 CABLE 和 VoiceMeeter…</div>
+      <div id="list" class="list"></div>
+    </section>
+    <script src="player.js"></script>
+  </body>
+</html>

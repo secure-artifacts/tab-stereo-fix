@@ -1,0 +1,16 @@
+浏览器立体声修复（软件）
+
+双击：
+  D:\redownload\ruanjian\tab-stereo-fix\启动立体声修复.bat
+
+如果双击没窗口：不要用 Windows 商店那个 python，软件会自动找
+  D:\WKLZHONYING\python\3.10.11\python.exe
+已经打开时再双击，只会把窗口提到前面，不会关掉。
+
+1. 选一套浏览器
+2. 点「打开（关掉 Wide AEC）」
+3. 只重启这一套。其它浏览器不关、不改音量、不写配置
+4. VoiceMeeter / CABLE 的系统默认设备不会改
+
+要恢复：选同一套，点「关闭（恢复）」
+软件只开一个窗口。正在运行的会重启；没在运行的只写设置。

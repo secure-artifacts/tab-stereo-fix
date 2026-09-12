@@ -1,0 +1,10 @@
+{
+  "name": "com.tabstereofix.host",
+  "description": "Browser stereo fix native host",
+  "path": "D:\\redownload\\ruanjian\\tab-stereo-fix\\desktop\\native_host.bat",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://hlbocifbdbbaocggijlcmpifbmfnfbbp/",
+    "chrome-extension://iihjaaeelmnofgkjapkpcclmnoklmoee/"
+  ]
+}

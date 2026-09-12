@@ -1,0 +1,16 @@
+Thumbs.db
+Desktop.ini
+.DS_Store
+.env
+.env.*
+*.bak
+launchers/
+desktop/_discover.json
+config/ui-state.json
+config/fix-status.json
+config/python.exe.path
+config/last-error.txt
+__pycache__/
+*.pyc
+dist/
+node_modules/

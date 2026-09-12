@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>浏览器立体声修复</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>浏览器立体声修复</h1>
+        <p>随时开关。只会重启<strong>当前这个浏览器</strong>，其它 Chrome / Edge / Brave 不会关。</p>
+      </div>
+      <span id="state-pill">关</span>
+    </header>
+
+    <section class="card">
+      <label class="master">
+        <span>
+          <strong id="master-label">声音传播</strong>
+          <small>快捷键 Alt+Shift+S · 不改系统默认设备</small>
+        </span>
+        <input id="toggle" type="checkbox" />
+      </label>
+      <div id="status" class="status warn">正在检查本机开关…</div>
+    </section>
+
+    <section class="card">
+      <div class="kicker">音量</div>
+      <label class="gain-row">
+        <input id="gain" type="range" min="100" max="400" step="25" value="200" />
+        <strong id="gain-label">200%</strong>
+      </label>
+      <p class="hint">打开后默认加大到 200%。只放大网页播放，不改 VoiceMeeter / CABLE 推子。</p>
+    </section>
+
+    <section class="card">
+      <div class="kicker">说明</div>
+      <p class="hint" style="margin-top:8px">
+        纯网页插件改不了 Wide Echo Cancellation。这个开关会重启<strong>当前这个浏览器用户</strong>，VoiceMeeter 和 CABLE 的默认设置不动。
+      </p>
+      <p class="hint">第一次请先双击仓库里的「安装开关.bat」，再回到这里重新加载插件。</p>
+      <p id="ext-id" class="hint mono"></p>
+    </section>
+
+    <footer>
+      不联网，不读网页内容。
+      <button id="open-privacy" type="button" class="link">隐私说明</button>
+    </footer>
+    <script src="popup.js"></script>
+  </body>
+</html>
