@@ -31,7 +31,7 @@ function render(state) {
     return;
   }
   if (enabled) {
-    setStatus("已打开。这个浏览器用户的 Wide AEC 已关，声音应能进 VoiceMeeter / CABLE。再关一次会重启并恢复。", "ok");
+    setStatus("已打开。这个浏览器用户的 Wide AEC 已关，声音应能进 VoiceMeeter / VoiceMeeter AUX / CABLE / Line 1。再关一次会重启并恢复。", "ok");
     return;
   }
   setStatus("现在关着。打开后只重启当前这个浏览器，其它浏览器不动。", "warn");

@@ -6,7 +6,7 @@ async function setBadge(enabled) {
   await chrome.action.setBadgeText({ text: enabled ? "开" : "" });
   await chrome.action.setTitle({
     title: enabled
-      ? "Wide AEC 已关 · 声音可进 VoiceMeeter / CABLE"
+      ? "Wide AEC 已关 · 声音可进 VoiceMeeter / AUX / CABLE / Line 1"
       : "Wide AEC 开着 · 点开关后会重启这个浏览器用户",
   });
 }

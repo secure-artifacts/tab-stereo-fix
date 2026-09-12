@@ -11,5 +11,5 @@ if errorlevel 1 (
 echo.
 echo 装好了。请到 chrome://extensions 重新加载「浏览器立体声修复」，
 echo 然后用插件开关。打开/关闭会重启当前这个浏览器用户，
-echo VoiceMeeter 和 CABLE 的系统默认设置不会改。
+echo VoiceMeeter / AUX / CABLE / Line 1 的系统默认设置不会改。
 pause

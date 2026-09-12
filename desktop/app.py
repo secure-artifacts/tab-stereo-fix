@@ -15,6 +15,7 @@ if __package__ in {None, ""}:
 
 try:
     from desktop.app_volume import set_browser_volume
+    from desktop.autostart import is_autostart_on, set_autostart
     from desktop.browser_audio_fix import (
         apply_fix,
         default_profile,
@@ -24,6 +25,7 @@ try:
     )
 except ImportError:  # pragma: no cover
     from app_volume import set_browser_volume
+    from autostart import is_autostart_on, set_autostart
     from browser_audio_fix import (
         apply_fix,
         default_profile,
@@ -114,7 +116,7 @@ class App(tk.Tk):
         ).pack(fill="x", padx=16, pady=(14, 2))
         tk.Label(
             header,
-            text="必须从本软件点「打开」来启动浏览器。从任务栏、开始菜单或桌面图标打开，声音进不了立体声混音。",
+            text="关掉 Wide AEC，让浏览器声音进入 VoiceMeeter / VoiceMeeter AUX / CABLE / Line 1。必须从本软件点「打开」来启动浏览器。",
             fg="#dbeafe",
             bg="#1d4ed8",
             font=("Microsoft YaHei UI", 9),
@@ -176,10 +178,11 @@ class App(tk.Tk):
             text=(
                 "1. 选一个用户，点「打开（关掉 Wide AEC）」。浏览器必须由本软件启动。\n"
                 "2. 关掉这套浏览器后，不能从任务栏、开始菜单或桌面图标再开。"
-                "那样声音进不了 VoiceMeeter / CABLE / 立体声混音。\n"
+                "那样声音进不了 VoiceMeeter / VoiceMeeter AUX / CABLE / Line 1。\n"
                 "3. 要继续用，再打开本软件，选同一用户，再点「打开」。\n"
                 "4. 要恢复原来的回声消除，选同一用户，点「关闭（恢复）」。\n"
-                "5. 只动你选的这一套。其它浏览器不关。不改 VoiceMeeter / CABLE。"
+                "5. 只动你选的这一套。其它浏览器不关。不改 VoiceMeeter / AUX / CABLE / Line 1。\n"
+                "6. 「开机启动」只打开本软件窗口，不会自动打开浏览器。开机后仍要点「打开」。"
             ),
             bg="#fff7ed",
             fg="#9a3412",
@@ -233,7 +236,10 @@ class App(tk.Tk):
         buttons = tk.Frame(body, bg="#f3f6fb")
         buttons.pack(fill="x", pady=8)
         ttk.Button(buttons, text="刷新", command=self.refresh).pack(side="left")
-        ttk.Button(buttons, text="只加大这套音量", command=self.boost_volume).pack(side="left", padx=6)
+        self.autostart_btn = ttk.Button(buttons, text="开机启动：关", command=self.toggle_autostart)
+        self.autostart_btn.pack(side="left", padx=6)
+        self._refresh_autostart_button()
+        ttk.Button(buttons, text="只加大这套音量", command=self.boost_volume).pack(side="left")
         self.off_btn = ttk.Button(buttons, text="关闭（恢复）", command=lambda: self.apply(False))
         self.on_btn = ttk.Button(buttons, text="打开（关掉 Wide AEC）", command=lambda: self.apply(True))
         self.off_btn.pack(side="right")
@@ -385,6 +391,24 @@ class App(tk.Tk):
             self.gain_var.set(value)
         self.gain_label.configure(text=f"{value}%")
         save_ui_state(gain_percent=value)
+
+    def _refresh_autostart_button(self) -> None:
+        on = is_autostart_on()
+        self.autostart_btn.configure(text="开机启动：开" if on else "开机启动：关")
+
+    def toggle_autostart(self) -> None:
+        want = not is_autostart_on()
+        ok = set_autostart(want)
+        self._refresh_autostart_button()
+        if not ok:
+            messagebox.showerror("开机启动", "没能改开机启动。")
+            return
+        self._set_progress(
+            "已打开开机启动。开机后只出现本软件，仍要点「打开」才能启动浏览器。"
+            if want
+            else "已关闭开机启动。",
+            ok=True,
+        )
 
     def boost_volume(self) -> None:
         selected = self.selected_profile()

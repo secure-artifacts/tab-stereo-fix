@@ -3,7 +3,7 @@
   "name": "浏览器立体声修复",
   "short_name": "立体声修复",
   "version": "3.0.2",
-  "description": "随时开关：关掉 Wide AEC，并把当前浏览器用户的声音加到 VoiceMeeter / CABLE。可调音量。",
+  "description": "关掉 Wide AEC，让浏览器声音进入 VoiceMeeter / VoiceMeeter AUX / CABLE / Line 1。可调音量。",
   "minimum_chrome_version": "116",
   "permissions": ["storage", "nativeMessaging"],
   "host_permissions": ["<all_urls>"],

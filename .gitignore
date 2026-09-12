@@ -13,6 +13,7 @@ config/last-error.txt
 config/keep-fixed.json
 config/keep-fixed.pid
 config/shortcut-backup.json
+config/autostart.vbs
 launchers/
 __pycache__/
 *.pyc

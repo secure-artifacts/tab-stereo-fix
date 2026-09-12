@@ -52,6 +52,10 @@ function matchDeviceId(kind, devices) {
     const found = outputs.find((item) => /voicemeeter/i.test(item.label) && /aux/i.test(item.label));
     return found ? { id: found.deviceId, label: found.label } : null;
   }
+  if (kind === "line1") {
+    const found = outputs.find((item) => /line\s*1/i.test(item.label) && !/voicemeeter/i.test(item.label));
+    return found ? { id: found.deviceId, label: found.label } : null;
+  }
   if (kind === "voicemeeter") {
     const found =
       outputs.find((item) => /voicemeeter/i.test(item.label) && !/aux|vaio3|insert/i.test(item.label)) ||
@@ -186,7 +190,7 @@ sinksEl.addEventListener("click", (event) => {
 });
 
 document.getElementById("apply").addEventListener("click", async () => {
-  setStatus("正在接到 CABLE / VoiceMeeter…", "warn");
+  setStatus("正在接到 VoiceMeeter / AUX / CABLE / Line 1…", "warn");
   await unlockOutputs();
   try {
     await applySinks(selectedKinds());

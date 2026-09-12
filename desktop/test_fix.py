@@ -6,6 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from autostart import START_BAT, autostart_command, write_autostart_vbs
 from browser_audio_fix import (
     BrowserProfile,
     collect_boost_pids,
@@ -383,6 +384,19 @@ class PersistLaunchTests(unittest.TestCase):
             )
         )
         self.assertFalse(_is_our_shortcut(r"C:\Program Files\Google\Chrome\Application\chrome.exe", ""))
+
+
+class AutostartTests(unittest.TestCase):
+    def test_command_points_at_hidden_launcher(self):
+        command = autostart_command()
+        self.assertIn("wscript.exe", command.lower())
+        self.assertIn("autostart.vbs", command.lower())
+
+    def test_vbs_starts_app_bat(self):
+        path = write_autostart_vbs()
+        text = path.read_text(encoding="utf-16")
+        self.assertIn(str(START_BAT), text)
+        self.assertIn("Wscript.Shell", text)
 
 
 if __name__ == "__main__":

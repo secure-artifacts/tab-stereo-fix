@@ -1,8 +1,8 @@
 # 浏览器立体声修复
 
-桌面软件。给指定的 Chrome / Edge / Brave **用户**关掉 Wide Echo Cancellation，这个用户下所有窗口的声音才能进 VoiceMeeter / CABLE / 立体声混音。
+桌面软件。给指定的 Chrome / Edge / Brave **用户**关掉 Wide Echo Cancellation，这个用户下所有窗口的声音才能进 VoiceMeeter / VoiceMeeter AUX / CABLE / Line 1。
 
-只重启你勾选的那一套浏览器。其它浏览器不会关。不改 VoiceMeeter / CABLE 的系统默认设备。
+只重启你勾选的那一套浏览器。其它浏览器不会关。不改这些虚拟设备的系统默认设置。
 
 ## 启动
 
@@ -10,7 +10,7 @@
 
 ## 使用说明
 
-**必须从本软件打开浏览器。** 关掉后再从任务栏、开始菜单或桌面图标打开，声音进不了 VoiceMeeter / CABLE / 立体声混音。
+**必须从本软件打开浏览器。** 关掉后再从任务栏、开始菜单或桌面图标打开，声音进不了 VoiceMeeter / VoiceMeeter AUX / CABLE / Line 1。
 
 1. 双击 `启动立体声修复.bat`
 2. 选一个用户
@@ -20,7 +20,9 @@
 
 不要从任务栏、开始菜单、桌面图标自己开。那样 Wide AEC 会回来，声音就不进立体声混音。
 
-要恢复原来的回声消除：选同一套，点 **关闭（恢复）**。软件只开一个窗口。其它浏览器不关。不改 VoiceMeeter / CABLE。
+要恢复原来的回声消除：选同一套，点 **关闭（恢复）**。软件只开一个窗口。其它浏览器不关。不改 VoiceMeeter / AUX / CABLE / Line 1。
+
+点 **开机启动** 可让软件开机后自己出现。只打开本软件窗口，不会自动打开浏览器，开机后仍要点 **打开**。
 
 ## 如何发布新版本
 
