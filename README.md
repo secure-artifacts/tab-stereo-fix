@@ -6,7 +6,7 @@
 
 ## 启动
 
-下载 Release 里的 `立体声修复.exe`，双击打开。不需要安装 Python。
+下载 Release 里的 `TabStereoFix-v版本号.zip`，解压后打开 `TabStereoFix` 文件夹，双击 `TabStereoFix.exe`。不需要安装 Python。
 
 开发时也可以双击 `启动立体声修复.bat`。
 
@@ -14,7 +14,7 @@
 
 **必须从本软件打开浏览器。** 关掉后再从任务栏、开始菜单或桌面图标打开，声音进不了 VoiceMeeter / VoiceMeeter AUX / CABLE / Line 1。
 
-1. 双击 `立体声修复.exe`
+1. 双击 `TabStereoFix.exe`
 2. 选一个用户
 3. 点 **打开（关掉 Wide AEC）**
 4. 只用软件拉起来的这套浏览器听立体声混音
@@ -28,7 +28,7 @@
 
 ## 如何发布新版本
 
-打 tag 后，GitHub Actions 会在 Windows 上打出 `立体声修复.exe`，并放到 Release 里供下载。
+打 tag 后，GitHub Actions 会在 Windows 上打出 `TabStereoFix-v版本号.zip`，并放到 Release 里供下载。
 
 ### 发布步骤
 

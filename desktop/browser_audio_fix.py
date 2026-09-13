@@ -164,15 +164,20 @@ class BrowserProfile:
         return f"{self.browser} / {self.display_name}{extra}"
 
 
-def filter_profiles_by_name(profiles: list[BrowserProfile], query: str) -> list[BrowserProfile]:
+def filter_profiles_by_name(
+    profiles: list[BrowserProfile],
+    query: str,
+    extras: dict[str, str] | None = None,
+) -> list[BrowserProfile]:
     needle = (query or "").strip().casefold()
+    extra = extras or {}
     if not needle:
         return list(profiles)
     matched: list[BrowserProfile] = []
     for item in profiles:
         hay = " ".join(
             part
-            for part in (item.display_name, item.email, item.browser, item.directory)
+            for part in (item.display_name, item.email, item.browser, item.directory, extra.get(item.key, ""))
             if part
         ).casefold()
         if needle in hay:

@@ -1,4 +1,4 @@
-"""Put the attested exe and a zip with the readme under dist/."""
+"""Zip the folder app. Only ASCII names go to GitHub, so it is not renamed to default.exe."""
 
 from __future__ import annotations
 
@@ -7,31 +7,25 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-EXE_NAMES = ("立体声修复.exe", "TabStereoFix.exe")
-
-
-def _find_exe(out_dir: Path) -> Path | None:
-    for name in EXE_NAMES:
-        path = out_dir / name
-        if path.is_file():
-            return path
-    return None
+APP_DIR = ROOT / "dist" / "TabStereoFix"
+EXE_NAME = "TabStereoFix.exe"
 
 
 def main() -> None:
     version = os.environ.get("GITHUB_REF_NAME") or "local"
+    exe = APP_DIR / EXE_NAME
+    if not exe.is_file():
+        raise SystemExit("missing dist/TabStereoFix/TabStereoFix.exe — run scripts/build_exe.py first")
     out_dir = ROOT / "dist"
     out_dir.mkdir(exist_ok=True)
-    exe = _find_exe(out_dir)
-    if exe is None:
-        raise SystemExit("missing dist/立体声修复.exe — run scripts/build_exe.py first")
-    zip_path = out_dir / f"tab-stereo-fix-{version}.zip"
+    zip_path = out_dir / f"TabStereoFix-{version}.zip"
+    if zip_path.exists():
+        zip_path.unlink()
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as archive:
-        archive.write(exe, "立体声修复.exe")
-        readme = ROOT / "安装说明.txt"
-        if readme.is_file():
-            archive.write(readme, "安装说明.txt")
-    print(exe.exists(), exe.name.encode("unicode_escape").decode())
+        for file_path in APP_DIR.rglob("*"):
+            if not file_path.is_file():
+                continue
+            archive.write(file_path, Path("TabStereoFix") / file_path.relative_to(APP_DIR))
     print(zip_path.name)
 
 

@@ -8,6 +8,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from autostart import START_BAT, autostart_command, write_autostart_vbs
 from paths import app_root, asset_file, config_dir
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+from build_exe import release_version, write_version_file
 from browser_audio_fix import (
     BrowserProfile,
     collect_boost_pids,
@@ -405,6 +408,42 @@ class SearchProfilesTests(unittest.TestCase):
         self.assertEqual([item.display_name for item in found], ["默认用户"])
         self.assertEqual(len(filter_profiles_by_name(profiles, "")), 3)
         self.assertEqual(filter_profiles_by_name(profiles, "没有这个"), [])
+        found = filter_profiles_by_name(profiles, "直播", extras={profiles[0].key: "直播"})
+        self.assertEqual([item.display_name for item in found], ["个人"])
+
+
+class CategoryTests(unittest.TestCase):
+    def setUp(self) -> None:
+        import categories
+
+        self._mod = categories
+        self._old = categories.STORE
+        self._tmp = tempfile.TemporaryDirectory()
+        categories.STORE = Path(self._tmp.name) / "user-categories.json"
+
+    def tearDown(self) -> None:
+        self._mod.STORE = self._old
+        self._tmp.cleanup()
+
+    def test_assign_and_filter_names(self):
+        self.assertEqual(self._mod.category_of("chrome|a|Default"), "未分类")
+        self._mod.set_category("chrome|a|Default", "直播")
+        self.assertEqual(self._mod.category_of("chrome|a|Default"), "直播")
+        self.assertIn("直播", self._mod.category_names())
+        self.assertIn("全部", self._mod.filter_options())
+
+    def test_delete_moves_users_back(self):
+        self._mod.set_category("edge|b|Default", "工作")
+        self._mod.delete_category("工作")
+        self.assertEqual(self._mod.category_of("edge|b|Default"), "未分类")
+        self.assertNotIn("工作", self._mod.category_names())
+
+    def test_rename_keeps_users(self):
+        self._mod.set_category("chrome|a|Default", "直播")
+        self.assertEqual(self._mod.rename_category("直播", "开播"), "开播")
+        self.assertEqual(self._mod.category_of("chrome|a|Default"), "开播")
+        self.assertNotIn("直播", self._mod.category_names())
+        self.assertIn("开播", self._mod.category_names())
 
 
 class PathTests(unittest.TestCase):
@@ -417,6 +456,17 @@ class PathTests(unittest.TestCase):
     def test_app_icon_assets_exist(self):
         self.assertTrue(asset_file("app.ico").is_file())
         self.assertTrue(asset_file("app-48.png").is_file())
+
+    def test_release_version_is_numeric(self):
+        self.assertRegex(release_version(), r"^\d+\.\d+\.\d+\.\d+$")
+
+    def test_version_file_names_the_ascii_exe(self):
+        with tempfile.TemporaryDirectory() as raw:
+            path = Path(raw) / "version.txt"
+            write_version_file(path)
+            text = path.read_text(encoding="utf-8")
+        self.assertIn("TabStereoFix.exe", text)
+        self.assertIn("MELO MZ", text)
 
 
 class AutostartTests(unittest.TestCase):

@@ -7,6 +7,7 @@ Desktop.ini
 launchers/
 desktop/_discover.json
 config/ui-state.json
+config/user-categories.json
 config/fix-status.json
 config/python.exe.path
 config/last-error.txt
@@ -18,7 +19,9 @@ launchers/
 __pycache__/
 *.pyc
 dist/
+dist-new/
 build/
+build-local/
 *.spec
 *.exe
 node_modules/
