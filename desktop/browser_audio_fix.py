@@ -67,7 +67,13 @@ KEEP_PID = config_file("keep-fixed.pid")
 KEEP_RUN_NAME = "TabStereoFixKeep"
 SHORTCUT_BACKUP = config_file("shortcut-backup.json")
 FIXED_LAUNCHER = default_launcher_dir() / "launch-fixed.vbs"
-BROWSER_PROCESSES = ("chrome.exe", "msedge.exe", "brave.exe", "chromium.exe")
+BROWSER_PROCESSES = (
+    "chrome.exe",
+    "msedge.exe",
+    "brave.exe",
+    "chromium.exe",
+    "vivaldi.exe",
+)
 
 INSTALLS = (
     {
@@ -90,6 +96,45 @@ INSTALLS = (
         "user_data": r"%LOCALAPPDATA%\Google\Chrome Beta\User Data",
     },
     {
+        "name": "Chrome Dev",
+        "exe_names": ("chrome.exe",),
+        "exe_globs": (
+            r"%PROGRAMFILES%\Google\Chrome Dev\Application\chrome.exe",
+            r"%LOCALAPPDATA%\Google\Chrome Dev\Application\chrome.exe",
+        ),
+        "user_data": r"%LOCALAPPDATA%\Google\Chrome Dev\User Data",
+    },
+    {
+        "name": "Chrome Canary",
+        "exe_names": ("chrome.exe",),
+        "exe_globs": (r"%LOCALAPPDATA%\Google\Chrome SxS\Application\chrome.exe",),
+        "user_data": r"%LOCALAPPDATA%\Google\Chrome SxS\User Data",
+    },
+    {
+        "name": "Chrome for Testing",
+        "exe_names": ("chrome.exe",),
+        "exe_globs": (r"%LOCALAPPDATA%\Google\Chrome for Testing\Application\chrome.exe",),
+        "user_data": r"%LOCALAPPDATA%\Google\Chrome for Testing\User Data",
+    },
+    {
+        "name": "Chrome Protect",
+        "exe_names": ("chrome.exe",),
+        "exe_globs": (
+            r"%PROGRAMFILES%\Google\Chrome Protect\Application\chrome.exe",
+            r"%PROGRAMFILES(X86)%\Google\Chrome Protect\Application\chrome.exe",
+            r"%LOCALAPPDATA%\Google\Chrome Protect\Application\chrome.exe",
+            r"%PROGRAMFILES%\Chrome Protect\Application\chrome.exe",
+            r"%LOCALAPPDATA%\Chrome Protect\Application\chrome.exe",
+            r"%PROGRAMFILES%\ChromeProtect\Application\chrome.exe",
+            r"%LOCALAPPDATA%\ChromeProtect\Application\chrome.exe",
+        ),
+        "user_data": (
+            r"%LOCALAPPDATA%\Google\Chrome Protect\User Data",
+            r"%LOCALAPPDATA%\Chrome Protect\User Data",
+            r"%LOCALAPPDATA%\ChromeProtect\User Data",
+        ),
+    },
+    {
         "name": "Edge",
         "exe_names": ("msedge.exe",),
         "exe_globs": (
@@ -108,6 +153,21 @@ INSTALLS = (
         "user_data": r"%LOCALAPPDATA%\Microsoft\Edge Beta\User Data",
     },
     {
+        "name": "Edge Dev",
+        "exe_names": ("msedge.exe",),
+        "exe_globs": (
+            r"%PROGRAMFILES(X86)%\Microsoft\Edge Dev\Application\msedge.exe",
+            r"%LOCALAPPDATA%\Microsoft\Edge Dev\Application\msedge.exe",
+        ),
+        "user_data": r"%LOCALAPPDATA%\Microsoft\Edge Dev\User Data",
+    },
+    {
+        "name": "Edge Canary",
+        "exe_names": ("msedge.exe",),
+        "exe_globs": (r"%LOCALAPPDATA%\Microsoft\Edge SxS\Application\msedge.exe",),
+        "user_data": r"%LOCALAPPDATA%\Microsoft\Edge SxS\User Data",
+    },
+    {
         "name": "Brave",
         "exe_names": ("brave.exe",),
         "exe_globs": (
@@ -115,6 +175,35 @@ INSTALLS = (
             r"%LOCALAPPDATA%\BraveSoftware\Brave-Browser\Application\brave.exe",
         ),
         "user_data": r"%LOCALAPPDATA%\BraveSoftware\Brave-Browser\User Data",
+    },
+    {
+        "name": "Vivaldi",
+        "exe_names": ("vivaldi.exe",),
+        "exe_globs": (
+            r"%LOCALAPPDATA%\Vivaldi\Application\vivaldi.exe",
+            r"%PROGRAMFILES%\Vivaldi\Application\vivaldi.exe",
+            r"%PROGRAMFILES(X86)%\Vivaldi\Application\vivaldi.exe",
+        ),
+        "user_data": r"%LOCALAPPDATA%\Vivaldi\User Data",
+    },
+    {
+        "name": "Vivaldi Snapshot",
+        "exe_names": ("vivaldi.exe",),
+        "exe_globs": (
+            r"%LOCALAPPDATA%\Vivaldi Snapshot\Application\vivaldi.exe",
+            r"%PROGRAMFILES%\Vivaldi Snapshot\Application\vivaldi.exe",
+        ),
+        "user_data": r"%LOCALAPPDATA%\Vivaldi Snapshot\User Data",
+    },
+    {
+        "name": "Chromium",
+        "exe_names": ("chrome.exe", "chromium.exe"),
+        "exe_globs": (
+            r"%LOCALAPPDATA%\Chromium\Application\chrome.exe",
+            r"%LOCALAPPDATA%\Chromium\Application\chromium.exe",
+            r"%PROGRAMFILES%\Chromium\Application\chrome.exe",
+        ),
+        "user_data": r"%LOCALAPPDATA%\Chromium\User Data",
     },
 )
 
@@ -252,9 +341,10 @@ def list_browser_processes(force: bool = False) -> list[dict]:
     with _PROCESS_LOCK:
         if not force and _PROCESS_CACHE["rows"] is not None and now - float(_PROCESS_CACHE["at"]) < 1.2:
             return list(_PROCESS_CACHE["rows"])
+    names = " OR ".join(f"Name = '{name}'" for name in BROWSER_PROCESSES)
     script = (
         "Get-CimInstance Win32_Process -Filter \""
-        "Name = 'chrome.exe' OR Name = 'msedge.exe' OR Name = 'brave.exe' OR Name = 'chromium.exe'\" | "
+        f"{names}\" | "
         "Select-Object ProcessId,ParentProcessId,Name,ExecutablePath,CommandLine | "
         "ConvertTo-Json -Compress"
     )
@@ -325,10 +415,27 @@ def _row_user_data(row: dict) -> str:
 
 def _product_key(path) -> str:
     lower = _norm_path(path).replace("\\", "/").lower()
-    if "chrome beta" in lower:
-        return "chrome-beta"
-    if "edge beta" in lower:
-        return "edge-beta"
+    rules = (
+        ("chrome protect", "chrome-protect"),
+        ("chromeprotect", "chrome-protect"),
+        ("chrome for testing", "chrome-testing"),
+        ("chrome sxs", "chrome-canary"),
+        ("chrome canary", "chrome-canary"),
+        ("chrome dev", "chrome-dev"),
+        ("chrome beta", "chrome-beta"),
+        ("vivaldi snapshot", "vivaldi-snapshot"),
+        ("vivaldi", "vivaldi"),
+        ("edge sxs", "edge-canary"),
+        ("edge canary", "edge-canary"),
+        ("edge dev", "edge-dev"),
+        ("edge beta", "edge-beta"),
+        ("bravesoftware", "brave"),
+        ("/brave-browser/", "brave"),
+        ("/chromium/", "chromium"),
+    )
+    for needle, key in rules:
+        if needle in lower:
+            return key
     if "bravesoftware" in lower or "/brave/" in lower or lower.endswith("/brave"):
         return "brave"
     if "/microsoft/edge" in lower or "/edge/" in lower:
@@ -437,7 +544,15 @@ def install_running_without_fix(exe: Path, user_data: Path, rows: list[dict] | N
     )
 
 
-PREFERRED_BROWSERS = ("Chrome", "Edge", "Brave", "Chrome Beta", "Edge Beta")
+PREFERRED_BROWSERS = (
+    "Chrome",
+    "Edge",
+    "Brave",
+    "Vivaldi",
+    "Chrome Protect",
+    "Chrome Beta",
+    "Edge Beta",
+)
 
 
 def default_user_data(profiles: list[BrowserProfile]) -> Path | None:
@@ -507,7 +622,7 @@ def _row_directory(row: dict) -> str:
 
 def list_visible_browser_pids() -> set[int]:
     script = (
-        "Get-Process -Name chrome,msedge,brave,chromium -ErrorAction SilentlyContinue | "
+        "Get-Process -Name chrome,msedge,brave,chromium,vivaldi -ErrorAction SilentlyContinue | "
         "Where-Object { $_.MainWindowHandle -ne 0 } | "
         "Select-Object -ExpandProperty Id | ConvertTo-Json -Compress"
     )
@@ -589,19 +704,29 @@ def first_existing(paths: tuple[str, ...]) -> Path | None:
     return None
 
 
+def _user_data_globs(spec: dict) -> tuple[str, ...]:
+    raw = spec["user_data"]
+    if isinstance(raw, str):
+        return (raw,)
+    return tuple(raw)
+
+
 def discover_profiles() -> list[BrowserProfile]:
     found: list[BrowserProfile] = []
     seen: set[str] = set()
     for spec in INSTALLS:
         exe = first_existing(spec["exe_globs"])
-        user_data = expand(spec["user_data"])
-        if not exe or not user_data.is_dir():
+        if not exe:
             continue
-        for profile in profiles_from_local_state(spec["name"], exe, user_data):
-            if profile.key in seen:
+        for raw in _user_data_globs(spec):
+            user_data = expand(raw)
+            if not user_data.is_dir():
                 continue
-            seen.add(profile.key)
-            found.append(profile)
+            for profile in profiles_from_local_state(spec["name"], exe, user_data):
+                if profile.key in seen:
+                    continue
+                seen.add(profile.key)
+                found.append(profile)
     return mark_running_profiles(found)
 
 
@@ -1068,9 +1193,12 @@ _OPEN_KEY_ROOTS = (
     r"Software\Classes\MSEdgePDF",
     r"Software\Classes\MSEdgeMHT",
     r"Software\Classes\BraveHTML",
+    r"Software\Classes\VivaldiHTM",
+    r"Software\Classes\ChromiumHTM",
     r"Software\Classes\Applications\chrome.exe",
     r"Software\Classes\Applications\msedge.exe",
     r"Software\Classes\Applications\brave.exe",
+    r"Software\Classes\Applications\vivaldi.exe",
     r"Software\Clients\StartMenuInternet",
 )
 

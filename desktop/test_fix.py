@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 from build_exe import release_version, write_version_file
 from browser_audio_fix import (
     BrowserProfile,
+    INSTALLS,
     collect_boost_pids,
     collect_install_pids,
     disable_flags,
@@ -23,6 +24,7 @@ from browser_audio_fix import (
     merge_disable_features,
     merge_open_command,
     _is_our_shortcut,
+    _product_key,
     one_install_only,
     parse_chrome_arg,
     patch_local_state,
@@ -214,6 +216,55 @@ class PidScopeTests(unittest.TestCase):
         ]
         self.assertEqual(pids_for_install(chrome, chrome_data, rows=rows), [41])
         self.assertEqual(pids_for_install(beta, beta_data, rows=rows), [51])
+
+    def test_does_not_match_chrome_protect_or_vivaldi(self):
+        chrome = Path(r"C:\Program Files\Google\Chrome\Application\chrome.exe")
+        protect = Path(r"C:\Program Files\Google\Chrome Protect\Application\chrome.exe")
+        vivaldi = Path(r"C:\Users\me\AppData\Local\Vivaldi\Application\vivaldi.exe")
+        chrome_data = Path(r"C:\Users\me\AppData\Local\Google\Chrome\User Data")
+        protect_data = Path(r"C:\Users\me\AppData\Local\Google\Chrome Protect\User Data")
+        vivaldi_data = Path(r"C:\Users\me\AppData\Local\Vivaldi\User Data")
+        rows = [
+            {
+                "pid": 61,
+                "ppid": 1,
+                "name": "chrome.exe",
+                "exe": str(chrome),
+                "cmdline": str(chrome),
+                "user_data": "",
+                "directory": "Default",
+            },
+            {
+                "pid": 71,
+                "ppid": 1,
+                "name": "chrome.exe",
+                "exe": str(protect),
+                "cmdline": str(protect),
+                "user_data": "",
+                "directory": "Default",
+            },
+            {
+                "pid": 81,
+                "ppid": 1,
+                "name": "vivaldi.exe",
+                "exe": str(vivaldi),
+                "cmdline": str(vivaldi),
+                "user_data": "",
+                "directory": "Default",
+            },
+        ]
+        self.assertEqual(pids_for_install(chrome, chrome_data, rows=rows), [61])
+        self.assertEqual(pids_for_install(protect, protect_data, rows=rows), [71])
+        self.assertEqual(pids_for_install(vivaldi, vivaldi_data, rows=rows), [81])
+        self.assertEqual(_product_key(protect), "chrome-protect")
+        self.assertEqual(_product_key(vivaldi), "vivaldi")
+        self.assertNotEqual(_product_key(chrome), _product_key(protect))
+
+    def test_discovers_vivaldi_and_chrome_protect_specs(self):
+        names = [item["name"] for item in INSTALLS]
+        self.assertIn("Vivaldi", names)
+        self.assertIn("Chrome Protect", names)
+        self.assertIn("Chrome Canary", names)
 
     def test_one_install_drops_other_browsers(self):
         chrome = Path(r"C:\Program Files\Google\Chrome\Application\chrome.exe")

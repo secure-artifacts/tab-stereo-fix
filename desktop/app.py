@@ -682,7 +682,7 @@ class App(tk.Tk):
             if not self.profiles:
                 tk.Label(
                     self.list_frame,
-                    text="没有找到 Chrome / Edge / Brave。",
+                    text="没有找到可用的浏览器。",
                     bg="#ffffff",
                     fg="#64748b",
                     font=("Microsoft YaHei UI", 9),

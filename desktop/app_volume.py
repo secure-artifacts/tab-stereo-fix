@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-BROWSER_EXES = {"chrome.exe", "msedge.exe", "brave.exe", "chromium.exe"}
+BROWSER_EXES = {"chrome.exe", "msedge.exe", "brave.exe", "chromium.exe", "vivaldi.exe"}
 
 
 def _norm_path(path: str) -> str:
@@ -13,11 +13,28 @@ def _norm_path(path: str) -> str:
 
 
 def _product_key(path) -> str:
-    lower = _norm_path(path)
-    if "chrome beta" in lower:
-        return "chrome-beta"
-    if "edge beta" in lower:
-        return "edge-beta"
+    lower = _norm_path(path).replace("/", "\\").lower()
+    rules = (
+        ("chrome protect", "chrome-protect"),
+        ("chromeprotect", "chrome-protect"),
+        ("chrome for testing", "chrome-testing"),
+        ("chrome sxs", "chrome-canary"),
+        ("chrome canary", "chrome-canary"),
+        ("chrome dev", "chrome-dev"),
+        ("chrome beta", "chrome-beta"),
+        ("vivaldi snapshot", "vivaldi-snapshot"),
+        ("vivaldi", "vivaldi"),
+        ("edge sxs", "edge-canary"),
+        ("edge canary", "edge-canary"),
+        ("edge dev", "edge-dev"),
+        ("edge beta", "edge-beta"),
+        ("bravesoftware", "brave"),
+        ("\\brave-browser\\", "brave"),
+        ("\\chromium\\", "chromium"),
+    )
+    for needle, key in rules:
+        if needle in lower:
+            return key
     if "bravesoftware" in lower or "\\brave" in lower:
         return "brave"
     if "\\microsoft\\edge" in lower or "\\edge\\" in lower:

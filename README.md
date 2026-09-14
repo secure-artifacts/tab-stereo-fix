@@ -1,6 +1,6 @@
 # 浏览器立体声修复
 
-桌面软件。给指定的 Chrome / Edge / Brave **用户**关掉 Wide Echo Cancellation，这个用户下所有窗口的声音才能进 VoiceMeeter / VoiceMeeter AUX / CABLE / Line 1。
+桌面软件。给指定的 Chrome / Edge / Brave / Vivaldi 等 Chromium **用户**关掉 Wide Echo Cancellation，这个用户下所有窗口的声音才能进 VoiceMeeter / VoiceMeeter AUX / CABLE / Line 1。
 
 只重启你勾选的那一套浏览器。其它浏览器不会关。不改这些虚拟设备的系统默认设置。
 

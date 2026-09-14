@@ -37,6 +37,7 @@ REG_PATHS = (
     r"Software\Chromium\NativeMessagingHosts\com.tabstereofix.host",
     r"Software\Microsoft\Edge\NativeMessagingHosts\com.tabstereofix.host",
     r"Software\BraveSoftware\Brave\NativeMessagingHosts\com.tabstereofix.host",
+    r"Software\Vivaldi\NativeMessagingHosts\com.tabstereofix.host",
 )
 
 
@@ -81,6 +82,9 @@ def ids_from_preferences() -> list[str]:
         Path(os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\Edge\User Data")),
         Path(os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\Edge Beta\User Data")),
         Path(os.path.expandvars(r"%LOCALAPPDATA%\BraveSoftware\Brave-Browser\User Data")),
+        Path(os.path.expandvars(r"%LOCALAPPDATA%\Vivaldi\User Data")),
+        Path(os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome Protect\User Data")),
+        Path(os.path.expandvars(r"%LOCALAPPDATA%\Chromium\User Data")),
     ]
     needle = "tab-stereo-fix"
     found: list[str] = []
