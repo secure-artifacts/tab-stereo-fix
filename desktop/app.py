@@ -37,6 +37,14 @@ try:
         group_installs,
         one_install_only,
     )
+    from desktop.i18n import (
+        LANG,
+        all_window_titles,
+        category_from_label,
+        category_label,
+        t,
+        ui_font,
+    )
 except ImportError:  # pragma: no cover
     from app_volume import set_browser_volume
     from autostart import is_autostart_on, set_autostart
@@ -61,20 +69,23 @@ except ImportError:  # pragma: no cover
         group_installs,
         one_install_only,
     )
+    from i18n import (
+        LANG,
+        all_window_titles,
+        category_from_label,
+        category_label,
+        t,
+        ui_font,
+    )
 
-WINDOW_TITLE = "立体声修复 - 选用户"
-OLD_TITLES = (WINDOW_TITLE,)
+WINDOW_TITLE = t("window_title")
+OLD_TITLES = all_window_titles()
 STATE_PATH = config_file("ui-state.json")
 ERROR_PATH = config_file("last-error.txt")
-HELP_TEXT = (
-    "1. 选一个用户，点「打开（关掉 Wide AEC）」。浏览器必须由本软件启动。\n"
-    "2. 关掉这套浏览器后，不能从任务栏、开始菜单或桌面图标再开。"
-    "那样声音进不了 VoiceMeeter / VoiceMeeter AUX / CABLE / Line 1。\n"
-    "3. 要继续用，再打开本软件，选同一用户，再点「打开」。\n"
-    "4. 要恢复原来的回声消除，选同一用户，点「关闭（恢复）」。\n"
-    "5. 只动你选的这一套。其它浏览器不关。不改 VoiceMeeter / AUX / CABLE / Line 1。\n"
-    "6. 「开机启动」只打开本软件窗口，不会自动打开浏览器。开机后仍要点「打开」。"
-)
+
+
+def _join_names(names: list[str]) -> str:
+    return ("、" if LANG == "zh" else ", ").join(names)
 
 
 def load_ui_state() -> dict:
@@ -221,10 +232,10 @@ class App(tk.Tk):
             tk.Label(brand, image=avatar, bg="#eef2f7").pack(side="left", padx=(0, 6))
         tk.Label(
             brand,
-            text="分类",
+            text=t("categories"),
             bg="#eef2f7",
             fg="#0f172a",
-            font=("Microsoft YaHei UI", 10, "bold"),
+            font=ui_font(10, bold=True),
             anchor="w",
         ).pack(side="left")
 
@@ -233,9 +244,9 @@ class App(tk.Tk):
 
         tools = tk.Frame(sidebar, bg="#eef2f7")
         tools.pack(fill="x", padx=6, pady=(2, 8))
-        ttk.Button(tools, text="新建分类", command=self.create_category).pack(fill="x", pady=1)
-        ttk.Button(tools, text="重命名", command=self.rename_sidebar_category).pack(fill="x", pady=1)
-        ttk.Button(tools, text="删除分类", command=self.delete_sidebar_category).pack(fill="x", pady=1)
+        ttk.Button(tools, text=t("new_category"), command=self.create_category).pack(fill="x", pady=1)
+        ttk.Button(tools, text=t("rename"), command=self.rename_sidebar_category).pack(fill="x", pady=1)
+        ttk.Button(tools, text=t("delete_category"), command=self.delete_sidebar_category).pack(fill="x", pady=1)
 
         main = tk.Frame(self, bg="#f3f6fb")
         main.grid(row=0, column=1, sticky="nsew")
@@ -248,7 +259,7 @@ class App(tk.Tk):
         title_row.pack(fill="x", padx=12, pady=(8, 0))
         self.help_btn = tk.Button(
             title_row,
-            text="使用说明",
+            text=t("help"),
             command=self.toggle_help,
             bg="#fbbf24",
             fg="#7c2d12",
@@ -258,24 +269,24 @@ class App(tk.Tk):
             bd=0,
             padx=12,
             pady=3,
-            font=("Microsoft YaHei UI", 9, "bold"),
+            font=ui_font(9, bold=True),
             cursor="hand2",
         )
         self.help_btn.pack(side="right")
         tk.Label(
             title_row,
-            text="立体声修复",
+            text=t("app_name"),
             fg="white",
             bg="#1d4ed8",
-            font=("Microsoft YaHei UI", 14, "bold"),
+            font=ui_font(14, bold=True),
             anchor="w",
         ).pack(side="left")
         self.header_hint = tk.Label(
             header,
-            text="关掉 Wide AEC，让浏览器声音进入 VoiceMeeter / AUX / CABLE / Line 1。必须从本软件点「打开」。",
+            text=t("header_hint"),
             fg="#dbeafe",
             bg="#1d4ed8",
-            font=("Microsoft YaHei UI", 8),
+            font=ui_font(8),
             wraplength=560,
             justify="left",
             anchor="w",
@@ -283,10 +294,10 @@ class App(tk.Tk):
         self.header_hint.pack(fill="x", padx=12, pady=(2, 8))
         self.help_panel = tk.Label(
             header,
-            text=HELP_TEXT,
+            text=t("help_text"),
             bg="#fff7ed",
             fg="#9a3412",
-            font=("Microsoft YaHei UI", 9),
+            font=ui_font(9),
             justify="left",
             anchor="w",
             wraplength=560,
@@ -302,10 +313,10 @@ class App(tk.Tk):
 
         self.status = tk.Label(
             body,
-            text="正在扫描…",
+            text=t("scanning"),
             bg="#e0e7ff",
             fg="#1e3a8a",
-            font=("Microsoft YaHei UI", 9),
+            font=ui_font(9),
             anchor="w",
             justify="left",
             padx=8,
@@ -315,9 +326,9 @@ class App(tk.Tk):
 
         list_wrap = tk.LabelFrame(
             body,
-            text="选择一个用户",
+            text=t("pick_user"),
             bg="#f3f6fb",
-            font=("Microsoft YaHei UI", 9, "bold"),
+            font=ui_font(9, bold=True),
         )
         list_wrap.grid(row=1, column=0, sticky="nsew", pady=(6, 4))
         list_wrap.columnconfigure(0, weight=1)
@@ -327,9 +338,9 @@ class App(tk.Tk):
         search_row.grid(row=0, column=0, sticky="ew", padx=6, pady=(4, 0))
         tk.Label(
             search_row,
-            text="搜索用户名字",
+            text=t("search_users"),
             bg="#f3f6fb",
-            font=("Microsoft YaHei UI", 9),
+            font=ui_font(9),
         ).pack(side="left")
         ttk.Entry(search_row, textvariable=self.search_var).pack(side="left", fill="x", expand=True, padx=(8, 0))
         self.search_var.trace_add("write", lambda *_args: self._paint_list())
@@ -356,10 +367,10 @@ class App(tk.Tk):
 
         self.progress = tk.Label(
             body,
-            text="选好后点「打开」。关掉浏览器后，必须再回到这里点「打开」，不要从图标自己开。",
+            text=t("progress_hint"),
             bg="#f8fafc",
             fg="#334155",
-            font=("Microsoft YaHei UI", 9),
+            font=ui_font(9),
             anchor="w",
             padx=8,
             pady=4,
@@ -370,9 +381,9 @@ class App(tk.Tk):
         gain_row.grid(row=3, column=0, sticky="ew", pady=(4, 0))
         tk.Label(
             gain_row,
-            text="这套浏览器增益",
+            text=t("gain"),
             bg="#f3f6fb",
-            font=("Microsoft YaHei UI", 9),
+            font=ui_font(9),
         ).pack(side="left")
         saved_gain = int(load_ui_state().get("gain_percent") or 300)
         self.gain_var = tk.IntVar(value=max(100, min(400, saved_gain)))
@@ -380,7 +391,7 @@ class App(tk.Tk):
             gain_row,
             text=f"{self.gain_var.get()}%",
             bg="#f3f6fb",
-            font=("Microsoft YaHei UI", 9, "bold"),
+            font=ui_font(9, bold=True),
             width=6,
         )
         self.gain_label.pack(side="right")
@@ -395,13 +406,13 @@ class App(tk.Tk):
 
         buttons = tk.Frame(body, bg="#f3f6fb")
         buttons.grid(row=4, column=0, sticky="ew", pady=4)
-        ttk.Button(buttons, text="刷新", command=self.refresh).pack(side="left")
-        self.autostart_btn = ttk.Button(buttons, text="开机启动：关", command=self.toggle_autostart)
+        ttk.Button(buttons, text=t("refresh"), command=self.refresh).pack(side="left")
+        self.autostart_btn = ttk.Button(buttons, text=t("autostart_off"), command=self.toggle_autostart)
         self.autostart_btn.pack(side="left", padx=6)
         self._refresh_autostart_button()
-        ttk.Button(buttons, text="只加大这套音量", command=self.boost_volume).pack(side="left")
-        self.off_btn = ttk.Button(buttons, text="关闭（恢复）", command=lambda: self.apply(False))
-        self.on_btn = ttk.Button(buttons, text="打开（关掉 Wide AEC）", command=lambda: self.apply(True))
+        ttk.Button(buttons, text=t("boost_volume"), command=self.boost_volume).pack(side="left")
+        self.off_btn = ttk.Button(buttons, text=t("close_restore"), command=lambda: self.apply(False))
+        self.on_btn = ttk.Button(buttons, text=t("open_fix"), command=lambda: self.apply(True))
         self.off_btn.pack(side="right")
         self.on_btn.pack(side="right", padx=6)
 
@@ -415,9 +426,9 @@ class App(tk.Tk):
             insertbackground="#e2e8f0",
         )
         self.log.grid(row=5, column=0, sticky="ew")
-        self.log.insert("1.0", "必须从本软件点「打开」启动浏览器。\n")
-        self.log.insert("end", "关掉后再从任务栏/开始菜单/桌面图标打开，声音进不了立体声混音。\n")
-        self.log.insert("end", "只打开你选的那一个用户。其它浏览器不关、不改音量。\n")
+        self.log.insert("1.0", t("log_must_open") + "\n")
+        self.log.insert("end", t("log_no_icon") + "\n")
+        self.log.insert("end", t("log_one_user") + "\n")
         self.log.configure(state="disabled")
         self.bind("<Configure>", self._on_root_resize, add="+")
         self._refresh_sidebar()
@@ -426,10 +437,10 @@ class App(tk.Tk):
         self._help_open = not self._help_open
         if self._help_open:
             self.help_panel.pack(fill="x")
-            self.help_btn.configure(text="收起说明")
+            self.help_btn.configure(text=t("hide_help"))
         else:
             self.help_panel.pack_forget()
-            self.help_btn.configure(text="使用说明")
+            self.help_btn.configure(text=t("help"))
 
     def _write_log(self, text: str) -> None:
         self.log.configure(state="normal")
@@ -457,7 +468,7 @@ class App(tk.Tk):
             return
         self._refreshing = True
         last = self.choice.get()
-        self.status.configure(text="正在扫描…", bg="#e0e7ff", fg="#1e3a8a")
+        self.status.configure(text=t("scanning"), bg="#e0e7ff", fg="#1e3a8a")
 
         def work() -> None:
             try:
@@ -476,7 +487,7 @@ class App(tk.Tk):
 
     def _refresh_failed(self, exc: Exception) -> None:
         self._refreshing = False
-        self.status.configure(text=f"扫描失败：{exc}", bg="#fef2f2", fg="#991b1b")
+        self.status.configure(text=t("scan_failed", error=exc), bg="#fef2f2", fg="#991b1b")
 
     def _render_profiles(self, profiles, snapshot, last: str) -> None:
         self._refreshing = False
@@ -487,7 +498,7 @@ class App(tk.Tk):
             return
         if not profiles:
             self._paint_list()
-            self.status.configure(text="没有可处理的浏览器。", bg="#fef3c7", fg="#92400e")
+            self.status.configure(text=t("no_browsers"), bg="#fef3c7", fg="#92400e")
             return
 
         remembered = last or str(load_ui_state().get("profile_key") or "")
@@ -535,34 +546,35 @@ class App(tk.Tk):
             text=text,
             bg="#eef2f7",
             fg="#64748b",
-            font=("Microsoft YaHei UI", 8, "bold"),
+            font=ui_font(8, bold=True),
             anchor="w",
         ).pack(fill="x", padx=4, pady=(6, 1))
 
-    def _nav_row(self, name: str, count: int, selected: bool, kind: str) -> None:
+    def _nav_row(self, name: str, count: int, selected: bool, kind: str, label: str | None = None) -> None:
+        shown = label if label is not None else name
         row = tk.Frame(self.sidebar_items, bg="#dbeafe" if selected else "#eef2f7")
         row.pack(fill="x", pady=1)
-        label = tk.Label(
+        title = tk.Label(
             row,
-            text=name,
+            text=shown,
             bg="#dbeafe" if selected else "#eef2f7",
             fg="#1d4ed8" if selected else "#334155",
-            font=("Microsoft YaHei UI", 9, "bold" if selected else "normal"),
+            font=ui_font(9, bold=selected),
             anchor="w",
             padx=8,
             pady=4,
         )
-        label.pack(side="left", fill="x", expand=True)
+        title.pack(side="left", fill="x", expand=True)
         badge = tk.Label(
             row,
             text=str(count),
             bg="#dbeafe" if selected else "#eef2f7",
             fg="#64748b",
-            font=("Microsoft YaHei UI", 8),
+            font=ui_font(8),
             padx=8,
         )
         badge.pack(side="right")
-        for widget in (row, label, badge):
+        for widget in (row, title, badge):
             widget.bind("<Button-1>", lambda _event, item=name, item_kind=kind: self._select_sidebar(item, item_kind))
 
     def _refresh_sidebar(self) -> None:
@@ -576,14 +588,14 @@ class App(tk.Tk):
             self.browser_filter = ""
         for child in self.sidebar_items.winfo_children():
             child.destroy()
-        self._nav_heading("用户分类")
+        self._nav_heading(t("user_categories"))
         counts = self._category_counts()
         for name in options:
             selected = self.nav_kind == "category" and name == current
-            self._nav_row(name, counts.get(name, 0), selected, "category")
+            self._nav_row(name, counts.get(name, 0), selected, "category", category_label(name))
         browsers = self._browser_names()
         if browsers:
-            self._nav_heading("浏览器")
+            self._nav_heading(t("browsers"))
             browser_counts = self._browser_counts()
             for name in browsers:
                 selected = self.nav_kind == "browser" and self.browser_filter == name
@@ -608,13 +620,13 @@ class App(tk.Tk):
         self.after(1, self._paint_list)
 
     def create_category(self) -> None:
-        name = simpledialog.askstring("新建分类", "分类名称：", parent=self)
+        name = simpledialog.askstring(t("new_category"), t("category_name"), parent=self)
         if name is None:
             return
         try:
             label = add_category(name)
         except ValueError as exc:
-            messagebox.showwarning("新建分类", str(exc))
+            messagebox.showwarning(t("new_category"), str(exc))
             return
         self.nav_kind = "category"
         self.browser_filter = ""
@@ -624,19 +636,19 @@ class App(tk.Tk):
 
     def rename_sidebar_category(self) -> None:
         if self.nav_kind != "category":
-            messagebox.showinfo("重命名", "请先点左边的用户分类。浏览器分类不能改名。")
+            messagebox.showinfo(t("rename"), t("rename_pick_user_cat"))
             return
         current = self.category_filter.get() or ALL
         if current in {ALL, UNCATEGORIZED}:
-            messagebox.showinfo("重命名", "「全部」和「未分类」不能改名。")
+            messagebox.showinfo(t("rename"), t("rename_reserved"))
             return
-        name = simpledialog.askstring("重命名分类", "新的名称：", initialvalue=current, parent=self)
+        name = simpledialog.askstring(t("rename_category"), t("new_name"), initialvalue=current, parent=self)
         if name is None:
             return
         try:
             label = rename_category(current, name)
         except ValueError as exc:
-            messagebox.showwarning("重命名", str(exc))
+            messagebox.showwarning(t("rename"), str(exc))
             return
         self.nav_kind = "category"
         self.browser_filter = ""
@@ -646,13 +658,13 @@ class App(tk.Tk):
 
     def delete_sidebar_category(self) -> None:
         if self.nav_kind != "category":
-            messagebox.showinfo("删除分类", "请先点左边的用户分类。浏览器分类不能删除。")
+            messagebox.showinfo(t("delete_category"), t("delete_pick_user_cat"))
             return
         current = self.category_filter.get() or ALL
         if current in {ALL, UNCATEGORIZED}:
-            messagebox.showinfo("删除分类", "「全部」和「未分类」不能删除。")
+            messagebox.showinfo(t("delete_category"), t("delete_reserved"))
             return
-        if not messagebox.askyesno("删除分类", f"删除「{current}」？里面的用户会回到「未分类」。"):
+        if not messagebox.askyesno(t("delete_category"), t("delete_confirm", name=current)):
             return
         delete_category(current)
         self.nav_kind = "category"
@@ -682,10 +694,10 @@ class App(tk.Tk):
             if not self.profiles:
                 tk.Label(
                     self.list_frame,
-                    text="没有找到可用的浏览器。",
+                    text=t("no_browser_found"),
                     bg="#ffffff",
                     fg="#64748b",
-                    font=("Microsoft YaHei UI", 9),
+                    font=ui_font(9),
                 ).pack(anchor="w")
                 return
 
@@ -698,16 +710,21 @@ class App(tk.Tk):
                     continue
                 tk.Label(
                     self.list_frame,
-                    text=f"{install.browser}（{'正在运行' if running else '未运行'} · {'已修复' if fixed else '未修复'}）",
+                    text=t(
+                        "install_status",
+                        browser=install.browser,
+                        run=t("running") if running else t("not_running"),
+                        fix=t("fixed") if fixed else t("not_fixed"),
+                    ),
                     bg="#ffffff",
                     fg="#1d4ed8",
-                    font=("Microsoft YaHei UI", 9, "bold"),
+                    font=ui_font(9, bold=True),
                     anchor="w",
                 ).pack(fill="x", pady=(8, 2))
                 for item in keep:
                     bits = []
-                    bits.append("正在运行" if item.selected else "未运行")
-                    bits.append("已修复" if fixed else "未修复")
+                    bits.append(t("running") if item.selected else t("not_running"))
+                    bits.append(t("fixed") if fixed else t("not_fixed"))
                     extra = f"（{' · '.join(bits)}）" if bits else ""
                     row = tk.Frame(self.list_frame, bg="#ffffff")
                     row.pack(fill="x", pady=1)
@@ -718,28 +735,30 @@ class App(tk.Tk):
                         variable=self.choice,
                         command=self._on_choice,
                     ).pack(side="left", anchor="w")
-                    var = tk.StringVar(value=category_of(item.key))
+                    var = tk.StringVar(value=category_label(category_of(item.key)))
                     self._cat_vars.append(var)
                     combo = ttk.Combobox(
                         row,
                         textvariable=var,
-                        values=names,
+                        values=[category_label(n) for n in names],
                         state="readonly",
                         width=8,
                     )
                     combo.pack(side="left", padx=(8, 0))
                     combo.bind(
                         "<<ComboboxSelected>>",
-                        lambda _event, key=item.key, box=var: self._assign_category(key, box.get()),
+                        lambda _event, key=item.key, box=var, opts=names: self._assign_category(
+                            key, category_from_label(box.get(), opts)
+                        ),
                     )
                     shown += 1
             if shown == 0:
                 tk.Label(
                     self.list_frame,
-                    text="没有符合条件的用户。",
+                    text=t("no_matching_users"),
                     bg="#ffffff",
                     fg="#64748b",
-                    font=("Microsoft YaHei UI", 9),
+                    font=ui_font(9),
                 ).pack(anchor="w", pady=8)
         finally:
             self._painting = False
@@ -760,15 +779,13 @@ class App(tk.Tk):
                 if item.selected and item.key != selected.key and item.user_data != selected.user_data
             }
         )
-        stay = f" 其它浏览器完全不动：{'、'.join(others)}。" if others else ""
+        stay = t("others_idle", names=_join_names(others)) if others else ""
         self.status.configure(
-            text=f"当前：{selected.label}。只打开这一个。{stay}",
+            text=t("current_user", label=selected.label, stay=stay),
             bg="#ecfdf3",
             fg="#166534",
         )
-        self._set_progress(
-            f"点「打开」启动 {selected.label}。关掉后必须再从本软件打开，从图标自己开声音进不了立体声混音。"
-        )
+        self._set_progress(t("click_open", label=selected.label))
 
     def _on_gain(self, _value=None) -> None:
         value = int(round(float(self.gain_var.get()) / 25) * 25)
@@ -780,26 +797,24 @@ class App(tk.Tk):
 
     def _refresh_autostart_button(self) -> None:
         on = is_autostart_on()
-        self.autostart_btn.configure(text="开机启动：开" if on else "开机启动：关")
+        self.autostart_btn.configure(text=t("autostart_on") if on else t("autostart_off"))
 
     def toggle_autostart(self) -> None:
         want = not is_autostart_on()
         ok = set_autostart(want)
         self._refresh_autostart_button()
         if not ok:
-            messagebox.showerror("开机启动", "没能改开机启动。")
+            messagebox.showerror(t("autostart"), t("autostart_fail"))
             return
         self._set_progress(
-            "已打开开机启动。开机后只出现本软件，仍要点「打开」才能启动浏览器。"
-            if want
-            else "已关闭开机启动。",
+            t("autostart_enabled") if want else t("autostart_disabled"),
             ok=True,
         )
 
     def boost_volume(self) -> None:
         selected = self.selected_profile()
         if not selected:
-            messagebox.showwarning("还没选", "请先选一个用户。")
+            messagebox.showwarning(t("not_selected"), t("pick_a_user"))
             return
         exe = str(selected.exe)
         browser = selected.browser
@@ -809,7 +824,7 @@ class App(tk.Tk):
             self.after(
                 0,
                 lambda: self._set_progress(
-                    f"已拉满 {browser} 的系统音量（{changed} 个会话）。",
+                    t("volume_ok", browser=browser, count=changed),
                     ok=True,
                 ),
             )
@@ -821,7 +836,7 @@ class App(tk.Tk):
             return
         selected = self.selected_profile()
         if not selected:
-            messagebox.showwarning("还没选", "请先选一个用户。")
+            messagebox.showwarning(t("not_selected"), t("pick_a_user"))
             return
         profiles, _ignored = one_install_only([selected])
         others = sorted(
@@ -831,30 +846,28 @@ class App(tk.Tk):
                 if item.selected and item.user_data != selected.user_data
             }
         )
-        stay = f"\n其它浏览器完全不动：{'、'.join(others)}" if others else ""
+        stay = t("others_line", names=_join_names(others)) if others else ""
         same_running = [
             item.display_name
             for item in self.profiles
             if item.user_data == selected.user_data and item.selected and item.key != selected.key
         ]
         same_note = (
-            f"\n同一套里正在开的「{'、'.join(same_running)}」会先关掉，然后只打开你选的这个。"
+            t("same_running", names=_join_names(same_running))
             if same_running
-            else "\n同一套里的其它用户不会被打开。"
+            else t("same_not_opened")
         )
-        action = "打开（关掉 Wide AEC）" if enabled else "关闭（恢复原来的回声消除）"
+        action = t("open_action") if enabled else t("close_action")
         gain = max(1.0, min(4.0, int(self.gain_var.get()) / 100))
-        remember = ""
         if not messagebox.askyesno(
             action,
-            f"只打开这一个用户：\n· {selected.label}{same_note}{stay}\n\n"
-            "关掉后再从任务栏或图标打开，声音进不了立体声混音。必须再回到本软件点「打开」。\n\n继续？",
+            t("confirm_open", label=selected.label, same=same_note, stay=stay),
         ):
             return
         self.busy = True
         self.on_btn.configure(state="disabled")
         self.off_btn.configure(state="disabled")
-        self._set_progress(f"正在打开 {selected.label}…")
+        self._set_progress(t("opening", label=selected.label))
 
         def work() -> None:
             report = apply_fix(
@@ -878,15 +891,13 @@ class App(tk.Tk):
         self._write_log(report.as_text())
         self.after(800, self.refresh)
         if report.errors:
-            self._set_progress("没有完成。", ok=False)
-            messagebox.showerror("没有完成", "\n".join(report.errors[:6]))
+            self._set_progress(t("not_done"), ok=False)
+            messagebox.showerror(t("not_done"), "\n".join(report.errors[:6]))
             return
-        self._set_progress("已完成。其它浏览器没有动。", ok=True)
+        self._set_progress(t("done_ok"), ok=True)
         messagebox.showinfo(
-            "完成",
-            "已打开。以后这套浏览器关掉了，必须再从本软件点「打开」。从任务栏或图标自己开，声音进不了立体声混音。"
-            if enabled
-            else "已关闭。这套浏览器恢复原来的回声消除。",
+            t("done"),
+            t("done_open") if enabled else t("done_close"),
         )
 
 

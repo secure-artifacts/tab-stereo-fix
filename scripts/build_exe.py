@@ -14,7 +14,7 @@ ASSETS = ROOT / "desktop" / "assets"
 
 
 def release_version() -> str:
-    raw = (os.environ.get("GITHUB_REF_NAME") or "1.4.0").lstrip("v")
+    raw = (os.environ.get("GITHUB_REF_NAME") or "1.5.0").lstrip("v")
     parts = [item if item.isdigit() else "0" for item in raw.split(".")]
     while len(parts) < 4:
         parts.append("0")
@@ -109,6 +109,8 @@ def main() -> None:
         "desktop.paths",
         "--hidden-import",
         "desktop.categories",
+        "--hidden-import",
+        "desktop.i18n",
         "--hidden-import",
         "pycaw.pycaw",
         "--hidden-import",

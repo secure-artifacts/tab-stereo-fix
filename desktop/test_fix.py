@@ -497,6 +497,50 @@ class CategoryTests(unittest.TestCase):
         self.assertIn("开播", self._mod.category_names())
 
 
+class I18nTests(unittest.TestCase):
+    def tearDown(self) -> None:
+        from i18n import detect_language, set_language
+
+        set_language(detect_language())
+
+    def test_language_from_code_maps_known_and_falls_back(self):
+        from i18n import language_from_code
+
+        self.assertEqual(language_from_code("zh-CN"), "zh")
+        self.assertEqual(language_from_code("zh_TW"), "zh")
+        self.assertEqual(language_from_code("ru-RU"), "ru")
+        self.assertEqual(language_from_code("uk-UA"), "uk")
+        self.assertEqual(language_from_code("en-US"), "en")
+        self.assertEqual(language_from_code("de-DE"), "en")
+        self.assertEqual(language_from_code("fr"), "en")
+        self.assertEqual(language_from_code(""), "en")
+        self.assertEqual(language_from_code(None), "en")
+
+    def test_all_languages_have_the_same_keys(self):
+        from i18n import STRINGS, SUPPORTED
+
+        keys = set(STRINGS["zh"])
+        self.assertEqual(set(SUPPORTED), {"zh", "en", "ru", "uk"})
+        for lang in SUPPORTED:
+            self.assertEqual(set(STRINGS[lang]), keys, lang)
+
+    def test_category_labels_do_not_change_stored_names(self):
+        from i18n import category_from_label, category_label, set_language
+
+        names = ["全部", "未分类", "工作", "个人"]
+        set_language("en")
+        self.assertEqual(category_label("未分类"), "Uncategorized")
+        self.assertEqual(category_from_label("Uncategorized", names), "未分类")
+        self.assertEqual(category_from_label("Work", names), "工作")
+        set_language("ru")
+        self.assertEqual(category_from_label("Без категории", names), "未分类")
+        set_language("uk")
+        self.assertEqual(category_from_label("Без категорії", names), "未分类")
+        set_language("zh")
+        self.assertEqual(category_label("未分类"), "未分类")
+        self.assertEqual(category_from_label("未分类", names), "未分类")
+
+
 class PathTests(unittest.TestCase):
     def test_source_root_contains_desktop(self):
         self.assertTrue((app_root() / "desktop").is_dir())

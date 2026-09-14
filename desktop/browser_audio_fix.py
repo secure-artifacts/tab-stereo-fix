@@ -14,8 +14,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 try:
+    from desktop.i18n import t
     from desktop.paths import config_file, launcher_dir as default_launcher_dir
 except ImportError:  # pragma: no cover
+    from i18n import t
     from paths import config_file, launcher_dir as default_launcher_dir
 
 _PROCESS_LOCK = threading.Lock()
@@ -1538,7 +1540,7 @@ def apply_fix(
         pids, skip_notes = collect_install_pids(profiles)
         report.warnings.extend(skip_notes)
         if pids:
-            note(f"正在关闭 {browser}…")
+            note(t("closing_browser", browser=browser))
             kill_pids(pids)
             report.closed = [f"pid {pid}" for pid in pids]
             if not wait_pids_closed(pids, 16):
@@ -1549,7 +1551,7 @@ def apply_fix(
     if not enabled:
         write_keep_target(None, enabled=False)
 
-    note(f"正在写入 {browser} 的设置…")
+    note(t("writing_settings", browser=browser))
     for user_data in unique_user_data(profiles):
         try:
             patched = patch_local_state(user_data) if enabled else restore_local_state(user_data)
@@ -1567,7 +1569,7 @@ def apply_fix(
         if not enabled and flags_disabled(user_data):
             report.warnings.append(f"{browser} 的实验项还在，已按关闭处理。")
 
-    note(f"正在记住 {browser} 的启动方式…")
+    note(t("remembering_launch", browser=browser))
     persisted = persist_install_launch(profiles[0], enabled=enabled)
     report.shortcuts.extend(persisted)
     if enabled and not persisted:
@@ -1598,7 +1600,7 @@ def apply_fix(
             report.warnings.append("已去掉会把网页静音的增益插件。")
 
     if relaunch:
-        note(f"正在打开你选的用户…")
+        note(t("opening_user"))
         for profile in profiles:
             try:
                 launch_profile(profile, fixed=enabled, gain=gain)
@@ -1616,7 +1618,7 @@ def apply_fix(
             except Exception:
                 pass
 
-    note("完成")
+    note(t("progress_done"))
     return report
 
 

@@ -6,8 +6,10 @@ import json
 from pathlib import Path
 
 try:
+    from desktop.i18n import t
     from desktop.paths import config_file
 except ImportError:  # pragma: no cover
+    from i18n import t
     from paths import config_file
 
 UNCATEGORIZED = "未分类"
@@ -66,9 +68,9 @@ def set_category(profile_key: str, name: str) -> str:
 def add_category(name: str) -> str:
     label = (name or "").strip()
     if not label:
-        raise ValueError("分类名不能为空")
+        raise ValueError(t("empty_category"))
     if label == ALL:
-        raise ValueError("不能使用这个名称")
+        raise ValueError(t("bad_category_name"))
     data = load_store()
     if label not in data["names"]:
         data["names"].append(label)
@@ -80,16 +82,16 @@ def rename_category(old: str, new: str) -> str:
     source = (old or "").strip()
     label = (new or "").strip()
     if source in {ALL, UNCATEGORIZED}:
-        raise ValueError("这个分类不能改名")
+        raise ValueError(t("cannot_rename"))
     if not label:
-        raise ValueError("分类名不能为空")
+        raise ValueError(t("empty_category"))
     if label in {ALL, UNCATEGORIZED}:
-        raise ValueError("不能使用这个名称")
+        raise ValueError(t("bad_category_name"))
     data = load_store()
     if source not in data["names"] and source not in data["assign"].values():
-        raise ValueError("没有这个分类")
+        raise ValueError(t("no_such_category"))
     if label != source and label in data["names"]:
-        raise ValueError("已有同名分类")
+        raise ValueError(t("category_exists"))
     data["names"] = [label if item == source else item for item in data["names"]]
     if label not in data["names"]:
         data["names"].append(label)
