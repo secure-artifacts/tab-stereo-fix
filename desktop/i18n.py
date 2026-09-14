@@ -5,6 +5,12 @@ from __future__ import annotations
 import locale
 
 SUPPORTED = ("zh", "en", "ru", "uk")
+LANGUAGE_NAMES = {
+    "zh": "中文",
+    "en": "English",
+    "ru": "Русский",
+    "uk": "Українська",
+}
 LANG = "en"
 
 STRINGS: dict[str, dict[str, str]] = {
@@ -22,6 +28,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "new_name": "新的名称：",
         "help": "使用说明",
         "hide_help": "收起说明",
+        "language": "语言",
         "header_hint": "关掉 Wide AEC，让浏览器声音进入 VoiceMeeter / AUX / CABLE / Line 1。必须从本软件点「打开」。",
         "help_text": (
             "1. 选一个用户，点「打开（关掉 Wide AEC）」。浏览器必须由本软件启动。\n"
@@ -114,6 +121,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "new_name": "New name:",
         "help": "Help",
         "hide_help": "Hide help",
+        "language": "Language",
         "header_hint": "Turn off Wide AEC so browser audio can reach VoiceMeeter / AUX / CABLE / Line 1. You must click Open in this app.",
         "help_text": (
             "1. Select a user and click Open (turn off Wide AEC). The browser must be started from this app.\n"
@@ -206,6 +214,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "new_name": "Новое имя:",
         "help": "Справка",
         "hide_help": "Скрыть справку",
+        "language": "Язык",
         "header_hint": "Отключите Wide AEC, чтобы звук браузера шёл в VoiceMeeter / AUX / CABLE / Line 1. Браузер нужно открывать кнопкой «Открыть» в этой программе.",
         "help_text": (
             "1. Выберите пользователя и нажмите «Открыть (выключить Wide AEC)». Браузер должен запускаться из этой программы.\n"
@@ -298,6 +307,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "new_name": "Нова назва:",
         "help": "Довідка",
         "hide_help": "Сховати довідку",
+        "language": "Мова",
         "header_hint": "Вимкніть Wide AEC, щоб звук браузера йшов у VoiceMeeter / AUX / CABLE / Line 1. Браузер потрібно відкривати кнопкою «Відкрити» в цій програмі.",
         "help_text": (
             "1. Виберіть користувача й натисніть «Відкрити (вимкнути Wide AEC)». Браузер має запускатися з цієї програми.\n"
@@ -415,6 +425,13 @@ def detect_language() -> str:
         except Exception:
             code = ""
     return language_from_code(code)
+
+
+def resolve_language(saved: str | None = None) -> str:
+    code = (saved or "").strip().lower()
+    if code in SUPPORTED:
+        return code
+    return detect_language()
 
 
 def set_language(code: str) -> str:

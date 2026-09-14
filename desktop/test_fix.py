@@ -20,6 +20,7 @@ from browser_audio_fix import (
     filter_profiles_by_name,
     is_fix_on,
     group_installs,
+    mark_clean_exit,
     mark_running_profiles,
     merge_disable_features,
     merge_open_command,
@@ -395,6 +396,25 @@ class PidScopeTests(unittest.TestCase):
             self.assertNotIn("aaa", data["extensions"]["settings"])
             self.assertIn("bbb", data["extensions"]["settings"])
 
+    def test_mark_clean_exit_clears_crash_restore(self):
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            state = root / "Local State"
+            prefs = root / "Default" / "Preferences"
+            prefs.parent.mkdir()
+            state.write_text(json.dumps({"browser": {"exited_cleanly": False}}), encoding="utf-8")
+            prefs.write_text(
+                json.dumps({"profile": {"exit_type": "Crashed", "exited_cleanly": False}}),
+                encoding="utf-8",
+            )
+            mark_clean_exit(root, "Default")
+            state_data = json.loads(state.read_text(encoding="utf-8"))
+            prefs_data = json.loads(prefs.read_text(encoding="utf-8"))
+            self.assertTrue(state_data["exited_cleanly"])
+            self.assertTrue(state_data["browser"]["exited_cleanly"])
+            self.assertEqual(prefs_data["profile"]["exit_type"], "Normal")
+            self.assertTrue(prefs_data["profile"]["exited_cleanly"])
+
 
 class PersistLaunchTests(unittest.TestCase):
     def test_adds_and_removes_feature_flag(self):
@@ -515,6 +535,14 @@ class I18nTests(unittest.TestCase):
         self.assertEqual(language_from_code("fr"), "en")
         self.assertEqual(language_from_code(""), "en")
         self.assertEqual(language_from_code(None), "en")
+
+    def test_saved_language_overrides_system(self):
+        from i18n import LANGUAGE_NAMES, resolve_language
+
+        self.assertEqual(resolve_language("ru"), "ru")
+        self.assertEqual(resolve_language("EN"), "en")
+        self.assertEqual(set(LANGUAGE_NAMES), {"zh", "en", "ru", "uk"})
+        self.assertNotEqual(resolve_language("de"), "de")
 
     def test_all_languages_have_the_same_keys(self):
         from i18n import STRINGS, SUPPORTED

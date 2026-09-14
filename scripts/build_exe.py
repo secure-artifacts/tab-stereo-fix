@@ -14,7 +14,7 @@ ASSETS = ROOT / "desktop" / "assets"
 
 
 def release_version() -> str:
-    raw = (os.environ.get("GITHUB_REF_NAME") or "1.5.0").lstrip("v")
+    raw = (os.environ.get("GITHUB_REF_NAME") or "1.5.1").lstrip("v")
     parts = [item if item.isdigit() else "0" for item in raw.split(".")]
     while len(parts) < 4:
         parts.append("0")

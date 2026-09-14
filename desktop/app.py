@@ -39,9 +39,13 @@ try:
     )
     from desktop.i18n import (
         LANG,
+        LANGUAGE_NAMES,
+        SUPPORTED,
         all_window_titles,
         category_from_label,
         category_label,
+        resolve_language,
+        set_language,
         t,
         ui_font,
     )
@@ -71,9 +75,13 @@ except ImportError:  # pragma: no cover
     )
     from i18n import (
         LANG,
+        LANGUAGE_NAMES,
+        SUPPORTED,
         all_window_titles,
         category_from_label,
         category_label,
+        resolve_language,
+        set_language,
         t,
         ui_font,
     )
@@ -98,7 +106,12 @@ def load_ui_state() -> dict:
     return data
 
 
-def save_ui_state(user_data=None, profile_key: str | None = None, gain_percent: int | None = None) -> None:
+def save_ui_state(
+    user_data=None,
+    profile_key: str | None = None,
+    gain_percent: int | None = None,
+    language: str | None = None,
+) -> None:
     data = load_ui_state()
     if user_data is not None:
         data["user_data"] = str(user_data)
@@ -106,6 +119,8 @@ def save_ui_state(user_data=None, profile_key: str | None = None, gain_percent: 
         data["profile_key"] = str(profile_key)
     if gain_percent is not None:
         data["gain_percent"] = int(gain_percent)
+    if language is not None:
+        data["language"] = str(language)
     try:
         STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
         STATE_PATH.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
@@ -159,23 +174,29 @@ def focus_existing_window() -> bool:
 class App(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
-        self.title(WINDOW_TITLE)
+        set_language(resolve_language(str(load_ui_state().get("language") or "")))
+        self.title(t("window_title"))
         self.configure(bg="#f3f6fb")
         self.installs = []
         self.profiles = []
         self._snapshot = []
         self.choice = tk.StringVar(value="")
         self.search_var = tk.StringVar(value="")
+        saved_gain = int(load_ui_state().get("gain_percent") or 300)
+        self.gain_var = tk.IntVar(value=max(100, min(400, saved_gain)))
         self.category_filter = tk.StringVar(value=ALL)
         self.nav_kind = "category"
         self.browser_filter = ""
         self.busy = False
         self._refreshing = False
         self._painting = False
+        self._help_open = False
         self._cat_vars = []
         self._icon_photos = []
+        self.search_var.trace_add("write", lambda *_args: self._paint_list())
         self._apply_app_icon()
         self._build()
+        self.bind("<Configure>", self._on_root_resize, add="+")
         self._fit_to_screen()
         self.after(80, self.refresh)
 
@@ -257,6 +278,22 @@ class App(tk.Tk):
         header.grid(row=0, column=0, sticky="ew")
         title_row = tk.Frame(header, bg="#1d4ed8")
         title_row.pack(fill="x", padx=12, pady=(8, 0))
+        self.lang_btn = tk.Button(
+            title_row,
+            text=t("language"),
+            command=self._show_language_menu,
+            bg="#93c5fd",
+            fg="#1e3a8a",
+            activebackground="#60a5fa",
+            activeforeground="#1e3a8a",
+            relief="flat",
+            bd=0,
+            padx=12,
+            pady=3,
+            font=ui_font(9, bold=True),
+            cursor="hand2",
+        )
+        self.lang_btn.pack(side="right")
         self.help_btn = tk.Button(
             title_row,
             text=t("help"),
@@ -272,7 +309,7 @@ class App(tk.Tk):
             font=ui_font(9, bold=True),
             cursor="hand2",
         )
-        self.help_btn.pack(side="right")
+        self.help_btn.pack(side="right", padx=(0, 8))
         tk.Label(
             title_row,
             text=t("app_name"),
@@ -304,7 +341,6 @@ class App(tk.Tk):
             padx=12,
             pady=8,
         )
-        self._help_open = False
 
         body = tk.Frame(main, bg="#f3f6fb")
         body.grid(row=1, column=0, sticky="nsew", padx=8, pady=6)
@@ -343,7 +379,6 @@ class App(tk.Tk):
             font=ui_font(9),
         ).pack(side="left")
         ttk.Entry(search_row, textvariable=self.search_var).pack(side="left", fill="x", expand=True, padx=(8, 0))
-        self.search_var.trace_add("write", lambda *_args: self._paint_list())
 
         list_box = tk.Frame(list_wrap, bg="#ffffff")
         list_box.grid(row=1, column=0, sticky="nsew", padx=6, pady=4)
@@ -385,8 +420,6 @@ class App(tk.Tk):
             bg="#f3f6fb",
             font=ui_font(9),
         ).pack(side="left")
-        saved_gain = int(load_ui_state().get("gain_percent") or 300)
-        self.gain_var = tk.IntVar(value=max(100, min(400, saved_gain)))
         self.gain_label = tk.Label(
             gain_row,
             text=f"{self.gain_var.get()}%",
@@ -430,7 +463,6 @@ class App(tk.Tk):
         self.log.insert("end", t("log_no_icon") + "\n")
         self.log.insert("end", t("log_one_user") + "\n")
         self.log.configure(state="disabled")
-        self.bind("<Configure>", self._on_root_resize, add="+")
         self._refresh_sidebar()
 
     def toggle_help(self) -> None:
@@ -441,6 +473,39 @@ class App(tk.Tk):
         else:
             self.help_panel.pack_forget()
             self.help_btn.configure(text=t("help"))
+
+    def _show_language_menu(self) -> None:
+        menu = tk.Menu(self, tearoff=0)
+        for code in SUPPORTED:
+            label = LANGUAGE_NAMES[code]
+            if code == LANG:
+                label = f"✓ {label}"
+            menu.add_command(label=label, command=lambda item=code: self._change_language(item))
+        try:
+            menu.tk_popup(
+                self.lang_btn.winfo_rootx(),
+                self.lang_btn.winfo_rooty() + self.lang_btn.winfo_height(),
+            )
+        finally:
+            menu.grab_release()
+
+    def _change_language(self, code: str) -> None:
+        if code not in SUPPORTED or code == LANG:
+            return
+        help_open = self._help_open
+        set_language(code)
+        save_ui_state(language=code)
+        for child in self.winfo_children():
+            child.destroy()
+        self.title(t("window_title"))
+        self._help_open = False
+        self._build()
+        if help_open:
+            self.toggle_help()
+        if self.profiles:
+            self._paint_list()
+            if self.selected_profile():
+                self._on_choice()
 
     def _write_log(self, text: str) -> None:
         self.log.configure(state="normal")
@@ -839,31 +904,7 @@ class App(tk.Tk):
             messagebox.showwarning(t("not_selected"), t("pick_a_user"))
             return
         profiles, _ignored = one_install_only([selected])
-        others = sorted(
-            {
-                item.browser
-                for item in self.profiles
-                if item.selected and item.user_data != selected.user_data
-            }
-        )
-        stay = t("others_line", names=_join_names(others)) if others else ""
-        same_running = [
-            item.display_name
-            for item in self.profiles
-            if item.user_data == selected.user_data and item.selected and item.key != selected.key
-        ]
-        same_note = (
-            t("same_running", names=_join_names(same_running))
-            if same_running
-            else t("same_not_opened")
-        )
-        action = t("open_action") if enabled else t("close_action")
         gain = max(1.0, min(4.0, int(self.gain_var.get()) / 100))
-        if not messagebox.askyesno(
-            action,
-            t("confirm_open", label=selected.label, same=same_note, stay=stay),
-        ):
-            return
         self.busy = True
         self.on_btn.configure(state="disabled")
         self.off_btn.configure(state="disabled")
@@ -892,13 +933,9 @@ class App(tk.Tk):
         self.after(800, self.refresh)
         if report.errors:
             self._set_progress(t("not_done"), ok=False)
-            messagebox.showerror(t("not_done"), "\n".join(report.errors[:6]))
+            messagebox.showerror(t("not_done"), "\n".join(report.errors[:6]), parent=self)
             return
-        self._set_progress(t("done_ok"), ok=True)
-        messagebox.showinfo(
-            t("done"),
-            t("done_open") if enabled else t("done_close"),
-        )
+        self._set_progress(t("done_open") if enabled else t("done_close"), ok=True)
 
 
 def main() -> None:

@@ -902,6 +902,42 @@ def write_gain_config(gain: float) -> Path:
     return path
 
 
+def mark_clean_exit(user_data: Path, directory: str = "") -> None:
+    """Prevent Chrome's 'Restore pages?' dialog after we close the process ourselves."""
+    state = user_data / "Local State"
+    if state.is_file():
+        try:
+            data = json.loads(state.read_text(encoding="utf-8-sig"))
+            if not isinstance(data, dict):
+                data = {}
+            browser = data.get("browser")
+            if not isinstance(browser, dict):
+                browser = {}
+                data["browser"] = browser
+            browser["exited_cleanly"] = True
+            data["exited_cleanly"] = True
+            state.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+        except (OSError, json.JSONDecodeError, TypeError):
+            pass
+    prefs_paths = [user_data / directory / "Preferences"] if directory else list(user_data.glob("*/Preferences"))
+    for prefs_path in prefs_paths:
+        if not prefs_path.is_file():
+            continue
+        try:
+            data = json.loads(prefs_path.read_text(encoding="utf-8-sig"))
+            if not isinstance(data, dict):
+                continue
+            profile = data.get("profile")
+            if not isinstance(profile, dict):
+                profile = {}
+                data["profile"] = profile
+            profile["exit_type"] = "Normal"
+            profile["exited_cleanly"] = True
+            prefs_path.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+        except (OSError, json.JSONDecodeError, TypeError):
+            continue
+
+
 def strip_gain_extension(user_data: Path) -> int:
     """Remove the page-gain addon so media is not hijacked into silence."""
     removed = 0
@@ -1547,6 +1583,8 @@ def apply_fix(
                 report.errors.append(f"{browser} 还没完全退出，已取消写入，以免动到其它浏览器。")
                 return report
             time.sleep(0.4)
+            for profile in profiles:
+                mark_clean_exit(profile.user_data, profile.directory)
 
     if not enabled:
         write_keep_target(None, enabled=False)
@@ -1598,6 +1636,9 @@ def apply_fix(
         stripped = strip_gain_extension(user_data)
         if stripped:
             report.warnings.append("已去掉会把网页静音的增益插件。")
+
+    for profile in profiles:
+        mark_clean_exit(profile.user_data, profile.directory)
 
     if relaunch:
         note(t("opening_user"))
