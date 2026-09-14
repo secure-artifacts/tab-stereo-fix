@@ -544,6 +544,20 @@ class I18nTests(unittest.TestCase):
         self.assertEqual(set(LANGUAGE_NAMES), {"zh", "en", "ru", "uk"})
         self.assertNotEqual(resolve_language("de"), "de")
 
+    def test_set_language_updates_current_language(self):
+        from i18n import current_language, set_language, t
+
+        set_language("en")
+        self.assertEqual(current_language(), "en")
+        self.assertEqual(t("language"), "Language")
+        set_language("zh")
+        self.assertEqual(current_language(), "zh")
+        self.assertEqual(t("language"), "语言")
+        set_language("ru")
+        self.assertEqual(current_language(), "ru")
+        set_language("zh")
+        self.assertEqual(current_language(), "zh")
+
     def test_all_languages_have_the_same_keys(self):
         from i18n import STRINGS, SUPPORTED
 

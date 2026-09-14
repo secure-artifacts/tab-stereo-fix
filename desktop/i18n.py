@@ -440,6 +440,10 @@ def set_language(code: str) -> str:
     return LANG
 
 
+def current_language() -> str:
+    return LANG
+
+
 def t(key: str, **kwargs) -> str:
     table = STRINGS.get(LANG) or STRINGS["en"]
     text = table.get(key) or STRINGS["en"].get(key) or key

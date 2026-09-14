@@ -38,12 +38,12 @@ try:
         one_install_only,
     )
     from desktop.i18n import (
-        LANG,
         LANGUAGE_NAMES,
         SUPPORTED,
         all_window_titles,
         category_from_label,
         category_label,
+        current_language,
         resolve_language,
         set_language,
         t,
@@ -74,12 +74,12 @@ except ImportError:  # pragma: no cover
         one_install_only,
     )
     from i18n import (
-        LANG,
         LANGUAGE_NAMES,
         SUPPORTED,
         all_window_titles,
         category_from_label,
         category_label,
+        current_language,
         resolve_language,
         set_language,
         t,
@@ -93,7 +93,7 @@ ERROR_PATH = config_file("last-error.txt")
 
 
 def _join_names(names: list[str]) -> str:
-    return ("、" if LANG == "zh" else ", ").join(names)
+    return ("、" if current_language() == "zh" else ", ").join(names)
 
 
 def load_ui_state() -> dict:
@@ -478,7 +478,7 @@ class App(tk.Tk):
         menu = tk.Menu(self, tearoff=0)
         for code in SUPPORTED:
             label = LANGUAGE_NAMES[code]
-            if code == LANG:
+            if code == current_language():
                 label = f"✓ {label}"
             menu.add_command(label=label, command=lambda item=code: self._change_language(item))
         try:
@@ -490,7 +490,7 @@ class App(tk.Tk):
             menu.grab_release()
 
     def _change_language(self, code: str) -> None:
-        if code not in SUPPORTED or code == LANG:
+        if code not in SUPPORTED or code == current_language():
             return
         help_open = self._help_open
         set_language(code)
