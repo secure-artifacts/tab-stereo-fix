@@ -1,4 +1,4 @@
-"""Build app.png / app-48.png / app.ico from desktop/assets/app-source.jpg."""
+﻿"""Build app.png / app-48.png / app.ico from desktop/assets/app-source.jpg."""
 
 from __future__ import annotations
 

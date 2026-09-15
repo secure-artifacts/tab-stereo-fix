@@ -4,6 +4,9 @@
 也可以双击「打开立体声修复.bat」。不需要安装 Python。
 已经打开时再双击，只会把窗口提到前面，不会关掉。
 
+本程序用官方 Python 运行，TabStereoFix.exe 带 Python Software Foundation 的数字签名。
+请下载 v1.6.0 及更新版本。旧版 PyInstaller 压缩包容易被杀毒软件误报。
+
 不要下载名叫 default.exe 的文件。那是旧版中文文件名上传失败后的名字。
 
 使用说明

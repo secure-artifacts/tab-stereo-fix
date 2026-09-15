@@ -7,10 +7,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from autostart import START_BAT, autostart_command, write_autostart_vbs
-from paths import app_root, asset_file, config_dir
+from paths import app_root, asset_file, config_dir, is_frozen
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
-from build_exe import release_version, write_version_file
+from make_bundle import release_version, write_version_file
 from browser_audio_fix import (
     BrowserProfile,
     INSTALLS,
@@ -584,6 +584,9 @@ class I18nTests(unittest.TestCase):
 
 
 class PathTests(unittest.TestCase):
+    def test_source_run_is_not_packaged(self):
+        self.assertFalse(is_frozen())
+
     def test_source_root_contains_desktop(self):
         self.assertTrue((app_root() / "desktop").is_dir())
 

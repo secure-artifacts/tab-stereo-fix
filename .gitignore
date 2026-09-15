@@ -19,6 +19,7 @@ launchers/
 __pycache__/
 *.pyc
 dist/
+release/
 dist-new/
 build/
 build-local/

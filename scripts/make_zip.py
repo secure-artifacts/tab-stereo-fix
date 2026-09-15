@@ -7,7 +7,7 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-APP_DIR = ROOT / "dist" / "TabStereoFix"
+APP_DIR = ROOT / "release" / "TabStereoFix"
 EXE_NAME = "TabStereoFix.exe"
 
 
@@ -15,7 +15,7 @@ def main() -> None:
     version = os.environ.get("GITHUB_REF_NAME") or "local"
     exe = APP_DIR / EXE_NAME
     if not exe.is_file():
-        raise SystemExit("missing dist/TabStereoFix/TabStereoFix.exe — run scripts/build_exe.py first")
+        raise SystemExit("missing release/TabStereoFix/TabStereoFix.exe — run scripts/make_bundle.py first")
     out_dir = ROOT / "dist"
     out_dir.mkdir(exist_ok=True)
     zip_path = out_dir / f"TabStereoFix-{version}.zip"
@@ -24,6 +24,8 @@ def main() -> None:
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as archive:
         for file_path in APP_DIR.rglob("*"):
             if not file_path.is_file():
+                continue
+            if "__pycache__" in file_path.parts or file_path.suffix.lower() in {".pyc", ".pyo"}:
                 continue
             archive.write(file_path, Path("TabStereoFix") / file_path.relative_to(APP_DIR))
     print(zip_path.name)

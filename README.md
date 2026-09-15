@@ -6,7 +6,7 @@
 
 ## 启动
 
-下载 Release 里的 `TabStereoFix-v版本号.zip`，解压后打开 `TabStereoFix` 文件夹，双击 `TabStereoFix.exe`。不需要安装 Python。
+下载 Release 里的 `TabStereoFix-v版本号.zip`，解压后打开 `TabStereoFix` 文件夹，双击 `TabStereoFix.exe`。不需要安装 Python。请用 v1.6.0 及更新版本；旧版打包方式会被 Windows 安全中心误报。
 
 开发时也可以双击 `启动立体声修复.bat`。
 
