@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 BROWSER_EXES = {"chrome.exe", "msedge.exe", "brave.exe", "chromium.exe", "vivaldi.exe"}
@@ -63,6 +64,12 @@ def set_browser_volume(
     allowed_names = {name.lower() for name in (exe_names or set()) if name}
     value = max(0.0, min(1.0, float(level)))
     try:
+        if getattr(sys, "frozen", False) or globals().get("__compiled__"):
+            gen = Path(os.environ.get("LOCALAPPDATA") or Path.home()) / "TabStereoFix" / "comtypes-gen"
+            gen.mkdir(parents=True, exist_ok=True)
+            import comtypes.client
+
+            comtypes.client.gen_dir = str(gen)
         from pycaw.pycaw import AudioUtilities, ISimpleAudioVolume
     except ImportError:
         return 0

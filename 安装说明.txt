@@ -1,11 +1,12 @@
 浏览器立体声修复（软件）
 
+不需要安装 Python。
+
 下载 TabStereoFix-v版本号.zip，解压后打开 TabStereoFix 文件夹，双击 TabStereoFix.exe。
-也可以双击「打开立体声修复.bat」。不需要安装 Python。
+也可以双击「打开立体声修复.bat」。整个文件夹要一起留着，不要只拷走 exe。
 已经打开时再双击，只会把窗口提到前面，不会关掉。
 
-本程序用官方 Python 运行，TabStereoFix.exe 带 Python Software Foundation 的数字签名。
-请下载 v1.6.0 及更新版本。旧版 PyInstaller 压缩包容易被杀毒软件误报。
+请下载 v1.7.0 及更新版本。
 
 不要下载名叫 default.exe 的文件。那是旧版中文文件名上传失败后的名字。
 

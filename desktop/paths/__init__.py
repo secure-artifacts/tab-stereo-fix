@@ -12,6 +12,8 @@ PORTABLE_MARK = "TabStereoFix.portable"
 def is_frozen() -> bool:
     if bool(getattr(sys, "frozen", False)):
         return True
+    if globals().get("__compiled__"):
+        return True
     return (Path(sys.executable).resolve().parent / PORTABLE_MARK).is_file()
 
 

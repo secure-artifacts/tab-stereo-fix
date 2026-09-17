@@ -29,6 +29,9 @@ jobs:
       - name: Test
         run: python -m desktop.check_app
 
+      - name: Enable MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
       - name: Build folder
         run: python scripts/make_bundle.py
 

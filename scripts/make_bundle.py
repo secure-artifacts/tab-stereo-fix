@@ -1,9 +1,8 @@
-"""Build a portable folder that runs on official signed CPython.
+"""Build a standalone Windows folder app with Nuitka.
 
-PyInstaller bootloaders are frequently flagged as viruses. This copies
-pythonw.exe from the Python.org runtime (Authenticode signed) and launches
-the Tk app through sitecustomize when TabStereoFix.exe is opened with no
-arguments.
+Users do not install Python. The zip contains TabStereoFix.exe plus its
+runtime files. Nuitka compiles to a real program instead of a PyInstaller
+bootloader, which antivirus often flags.
 """
 
 from __future__ import annotations
@@ -18,18 +17,10 @@ ROOT = Path(__file__).resolve().parent.parent
 EXE_NAME = "TabStereoFix"
 DEST_DIR = ROOT / "release" / EXE_NAME
 ICON = ROOT / "desktop" / "assets" / "app.ico"
-SKIP_LIB = {
-    "__pycache__",
-    "ensurepip",
-    "idlelib",
-    "site-packages",
-    "test",
-    "turtledemo",
-}
 
 
 def release_version() -> str:
-    raw = (os.environ.get("GITHUB_REF_NAME") or "1.6.0").lstrip("v")
+    raw = (os.environ.get("GITHUB_REF_NAME") or "1.7.0").lstrip("v")
     parts = [item if item.isdigit() else "0" for item in raw.split(".")]
     while len(parts) < 4:
         parts.append("0")
@@ -80,90 +71,60 @@ def write_version_file(path: Path) -> str:
     return version
 
 
-def _ignore_lib(directory: str, names: list[str]) -> list[str]:
-    dropped = [name for name in names if name in SKIP_LIB or name.endswith(".pyc")]
-    if Path(directory).name == "tkinter" and "test" in names:
-        dropped.append("test")
-    return dropped
-
-
-def _copy_runtime(prefix: Path, dest: Path) -> None:
-    abi = f"python{sys.version_info.major}{sys.version_info.minor}"
-    for name in ("python.exe", "pythonw.exe", "python3.dll", f"{abi}.dll"):
-        src = prefix / name
-        if src.is_file():
-            shutil.copy2(src, dest / name)
-    for pattern in ("vcruntime*.dll", "concrt*.dll", "msvcp*.dll"):
-        for src in prefix.glob(pattern):
-            shutil.copy2(src, dest / src.name)
-    for folder in ("DLLs", "tcl"):
-        src = prefix / folder
-        if src.is_dir():
-            shutil.copytree(src, dest / folder, dirs_exist_ok=True)
-    lib = prefix / "Lib"
-    if not lib.is_dir():
-        raise SystemExit(f"missing Python Lib at {lib}")
-    shutil.copytree(lib, dest / "Lib", ignore=_ignore_lib, dirs_exist_ok=True)
-    (dest / "Lib" / "site-packages").mkdir(parents=True, exist_ok=True)
-
-
-def _write_sitecustomize(dest: Path) -> None:
-    path = dest / "Lib" / "sitecustomize.py"
-    path.write_text(
-        "import sys\n"
-        "\n"
-        "def _should_start_app() -> bool:\n"
-        "    if len(sys.argv) > 1:\n"
-        "        return False\n"
-        "    name = sys.argv[0].replace('\\\\', '/').rsplit('/', 1)[-1].lower()\n"
-        "    return name in {'tabstereofix.exe', 'pythonw.exe'}\n"
-        "\n"
-        "if _should_start_app():\n"
-        "    import runpy\n"
-        "    runpy.run_module('desktop.app', run_name='__main__')\n",
-        encoding="utf-8",
-    )
-    if not path.is_file():
-        raise SystemExit("failed to write sitecustomize.py")
+def _nuitka_command(out: Path) -> list[str]:
+    version = release_version()
+    command = [
+        sys.executable,
+        "-m",
+        "nuitka",
+        "--standalone",
+        "--assume-yes-for-downloads",
+        "--enable-plugin=tk-inter",
+        "--windows-console-mode=disable",
+        f"--windows-icon-from-ico={ICON}",
+        "--windows-company-name=MELO MZ",
+        "--windows-product-name=TabStereoFix",
+        "--windows-file-description=TabStereoFix browser audio helper",
+        f"--windows-file-version={version}",
+        f"--windows-product-version={version}",
+        "--include-package=desktop",
+        "--include-package=pycaw",
+        "--include-package=comtypes",
+        "--include-package=psutil",
+        "--include-data-dir=desktop/assets=desktop/assets",
+        "--output-filename=TabStereoFix.exe",
+        f"--output-dir={out}",
+        str(ROOT / "desktop" / "app.py"),
+    ]
+    if os.environ.get("GITHUB_ACTIONS"):
+        command.insert(5, "--msvc=latest")
+    else:
+        command.insert(5, "--mingw64")
+    return command
 
 
 def main() -> None:
-    dest = DEST_DIR
-    if dest.exists():
-        shutil.rmtree(dest)
-    dest.mkdir(parents=True)
     subprocess.check_call([sys.executable, str(ROOT / "scripts" / "make_icons.py")])
     if not ICON.is_file():
         raise SystemExit("missing desktop/assets/app.ico after make_icons")
-    prefix = Path(sys.base_prefix)
-    _copy_runtime(prefix, dest)
-    pythonw = dest / "pythonw.exe"
-    if not pythonw.is_file():
-        raise SystemExit(f"missing pythonw.exe in {prefix}")
-    shutil.copy2(pythonw, dest / f"{EXE_NAME}.exe")
-    subprocess.check_call(
-        [
-            sys.executable,
-            "-m",
-            "pip",
-            "install",
-            "--upgrade",
-            "--target",
-            str(dest / "Lib" / "site-packages"),
-            "pycaw",
-            "comtypes",
-        ]
-    )
-    shutil.copytree(
-        ROOT / "desktop",
-        dest / "Lib" / "site-packages" / "desktop",
-        ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "check_app.py", "test_fix.py", "gain_ext"),
-        dirs_exist_ok=True,
-    )
-    app_py = dest / "Lib" / "site-packages" / "desktop" / "app.py"
-    if not app_py.is_file():
-        raise SystemExit("desktop app.py was not copied into the package")
-    _write_sitecustomize(dest)
+    out = ROOT / "build" / "nuitka"
+    if out.exists():
+        shutil.rmtree(out)
+    out.mkdir(parents=True)
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(ROOT) + os.pathsep + env.get("PYTHONPATH", "")
+    subprocess.check_call(_nuitka_command(out), cwd=str(ROOT), env=env)
+    dist_dirs = [path for path in out.glob("*.dist") if path.is_dir()]
+    if not dist_dirs:
+        raise SystemExit("Nuitka did not produce a .dist folder")
+    dest = DEST_DIR
+    if dest.exists():
+        shutil.rmtree(dest)
+    shutil.copytree(dist_dirs[0], dest)
+    exe = dest / f"{EXE_NAME}.exe"
+    if not exe.is_file():
+        found = list(dest.glob("*.exe"))
+        raise SystemExit(f"missing TabStereoFix.exe in {dest}, have {found}")
     (dest / "TabStereoFix.portable").write_text(release_version(), encoding="utf-8")
     (dest / "打开立体声修复.bat").write_text(
         "@echo off\r\n"
@@ -174,10 +135,7 @@ def main() -> None:
     readme = ROOT / "安装说明.txt"
     if readme.is_file():
         (dest / "安装说明.txt").write_bytes(readme.read_bytes())
-    exe = dest / f"{EXE_NAME}.exe"
-    if not exe.is_file():
-        raise SystemExit("missing release/TabStereoFix/TabStereoFix.exe")
-    print("ok", exe, "signed-python-runtime")
+    print("ok", exe)
 
 
 if __name__ == "__main__":
