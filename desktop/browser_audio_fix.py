@@ -214,6 +214,22 @@ def expand(path: str) -> Path:
     return Path(os.path.expandvars(path)).expanduser()
 
 
+CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
+
+
+def _hidden_startup() -> dict:
+    if os.name != "nt":
+        return {}
+    # CREATE_NO_WINDOW only. STARTUPINFO+SW_HIDE with piped stdout deadlocks PowerShell.
+    return {"creationflags": CREATE_NO_WINDOW}
+
+
+def _run_hidden(args, **kwargs):
+    extra = _hidden_startup()
+    kwargs["creationflags"] = int(kwargs.get("creationflags") or 0) | int(extra.get("creationflags") or 0)
+    return subprocess.run(args, **kwargs)
+
+
 def running_images() -> set[str]:
     try:
         out = subprocess.check_output(
@@ -221,8 +237,10 @@ def running_images() -> set[str]:
             text=True,
             encoding="utf-8",
             errors="ignore",
+            timeout=5,
+            **_hidden_startup(),
         )
-    except (OSError, subprocess.CalledProcessError):
+    except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
         return set()
     found = set()
     lower = out.lower()
@@ -338,55 +356,120 @@ def profiles_from_local_state(browser: str, exe: Path, user_data: Path) -> list[
     return result
 
 
+def _process_details(pid: int) -> tuple[str, str]:
+    if os.name != "nt" or not pid:
+        return "", ""
+    import ctypes
+    from ctypes import wintypes
+
+    kernel32 = ctypes.windll.kernel32
+    ntdll = ctypes.windll.ntdll
+    handle = kernel32.OpenProcess(0x1000, False, int(pid))
+    if not handle:
+        return "", ""
+    try:
+        size = wintypes.DWORD(32768)
+        path_buf = ctypes.create_unicode_buffer(32768)
+        exe = ""
+        if kernel32.QueryFullProcessImageNameW(handle, 0, path_buf, ctypes.byref(size)):
+            exe = path_buf.value
+        length = wintypes.ULONG(0)
+        ntdll.NtQueryInformationProcess(handle, 60, None, 0, ctypes.byref(length))
+        cmdline = ""
+        if length.value:
+            buf = ctypes.create_string_buffer(length.value)
+
+            class _UNICODE_STRING(ctypes.Structure):
+                _fields_ = [
+                    ("Length", wintypes.USHORT),
+                    ("MaximumLength", wintypes.USHORT),
+                    ("Buffer", ctypes.c_void_p),
+                ]
+
+            status = ntdll.NtQueryInformationProcess(handle, 60, buf, length.value, ctypes.byref(length))
+            if status == 0:
+                ust = _UNICODE_STRING.from_buffer(buf)
+                if ust.Buffer and ust.Length:
+                    cmdline = ctypes.wstring_at(ust.Buffer, ust.Length // 2)
+        return exe, cmdline
+    except Exception:
+        return "", ""
+    finally:
+        kernel32.CloseHandle(handle)
+
+
+def _list_browser_processes_native() -> list[dict]:
+    if os.name != "nt":
+        return []
+    import ctypes
+    from ctypes import wintypes
+
+    class PROCESSENTRY32W(ctypes.Structure):
+        _fields_ = [
+            ("dwSize", wintypes.DWORD),
+            ("cntUsage", wintypes.DWORD),
+            ("th32ProcessID", wintypes.DWORD),
+            ("th32DefaultHeapID", ctypes.c_void_p),
+            ("th32ModuleID", wintypes.DWORD),
+            ("cntThreads", wintypes.DWORD),
+            ("th32ParentProcessID", wintypes.DWORD),
+            ("pcPriClassBase", ctypes.c_long),
+            ("dwFlags", wintypes.DWORD),
+            ("szExeFile", wintypes.WCHAR * 260),
+        ]
+
+    kernel32 = ctypes.windll.kernel32
+    kernel32.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
+    kernel32.Process32FirstW.argtypes = [wintypes.HANDLE, ctypes.POINTER(PROCESSENTRY32W)]
+    kernel32.Process32FirstW.restype = wintypes.BOOL
+    kernel32.Process32NextW.argtypes = [wintypes.HANDLE, ctypes.POINTER(PROCESSENTRY32W)]
+    kernel32.Process32NextW.restype = wintypes.BOOL
+    wanted = {name.lower() for name in BROWSER_PROCESSES}
+    snap = kernel32.CreateToolhelp32Snapshot(0x00000002, 0)
+    invalid = ctypes.c_void_p(-1).value
+    if not snap or snap == invalid:
+        return []
+    entry = PROCESSENTRY32W()
+    entry.dwSize = ctypes.sizeof(PROCESSENTRY32W)
+    rows: list[dict] = []
+    try:
+        more = bool(kernel32.Process32FirstW(snap, ctypes.byref(entry)))
+        steps = 0
+        while more and steps < 20000:
+            steps += 1
+            name = str(entry.szExeFile or "")
+            if name.lower() in wanted:
+                pid = int(entry.th32ProcessID)
+                ppid = int(entry.th32ParentProcessID)
+                exe, cmdline = _process_details(pid)
+                user_data = parse_chrome_arg(cmdline, "--user-data-dir")
+                rows.append(
+                    {
+                        "pid": pid,
+                        "ppid": ppid,
+                        "name": name,
+                        "exe": exe,
+                        "cmdline": cmdline,
+                        "directory": parse_chrome_arg(cmdline, "--profile-directory") or "Default",
+                        "user_data": str(Path(user_data)) if user_data else "",
+                    }
+                )
+            more = bool(kernel32.Process32NextW(snap, ctypes.byref(entry)))
+    finally:
+        kernel32.CloseHandle(snap)
+    return rows
+
+
 def list_browser_processes(force: bool = False) -> list[dict]:
     now = time.time()
     with _PROCESS_LOCK:
         if not force and _PROCESS_CACHE["rows"] is not None and now - float(_PROCESS_CACHE["at"]) < 1.2:
             return list(_PROCESS_CACHE["rows"])
-    names = " OR ".join(f"Name = '{name}'" for name in BROWSER_PROCESSES)
-    script = (
-        "Get-CimInstance Win32_Process -Filter \""
-        f"{names}\" | "
-        "Select-Object ProcessId,ParentProcessId,Name,ExecutablePath,CommandLine | "
-        "ConvertTo-Json -Compress"
-    )
+    rows: list[dict] = []
     try:
-        result = subprocess.run(
-            ["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="ignore",
-            timeout=8,
-        )
-    except (OSError, subprocess.TimeoutExpired):
+        rows = _list_browser_processes_native()
+    except Exception:
         rows = []
-    else:
-        raw = (result.stdout or "").strip()
-        rows = []
-        if raw:
-            try:
-                data = json.loads(raw)
-            except json.JSONDecodeError:
-                data = []
-            if isinstance(data, dict):
-                data = [data]
-            for item in data:
-                cmdline = str(item.get("CommandLine") or "")
-                exe = str(item.get("ExecutablePath") or _exe_from_command(cmdline) or "")
-                user_data = parse_chrome_arg(cmdline, "--user-data-dir")
-                directory = parse_chrome_arg(cmdline, "--profile-directory") or "Default"
-                rows.append(
-                    {
-                        "pid": int(item.get("ProcessId") or 0),
-                        "ppid": int(item.get("ParentProcessId") or 0),
-                        "name": str(item.get("Name") or ""),
-                        "exe": exe,
-                        "cmdline": cmdline,
-                        "directory": directory,
-                        "user_data": str(Path(user_data)) if user_data else "",
-                    }
-                )
     with _PROCESS_LOCK:
         _PROCESS_CACHE["at"] = time.time()
         _PROCESS_CACHE["rows"] = rows
@@ -497,6 +580,51 @@ def pids_for_install(exe: Path, user_data: Path, rows: list[dict] | None = None)
     return list(wanted)
 
 
+LOCK_FILE_NAMES = ("SingletonLock", "SingletonCookie", "SingletonSocket", "lockfile")
+
+
+def clear_profile_locks(user_data: Path) -> list[str]:
+    """Drop Chromium singleton files so a relaunch is not blocked by a dead instance."""
+    cleared: list[str] = []
+    folder = Path(user_data)
+    for name in LOCK_FILE_NAMES:
+        path = folder / name
+        try:
+            if path.is_file() or path.is_symlink() or path.exists():
+                path.unlink()
+                cleared.append(name)
+        except OSError:
+            continue
+    return cleared
+
+
+def close_install(profiles: list[BrowserProfile]) -> tuple[list[int], list[str]]:
+    """Force-close only the selected install, then unlock its user-data folder."""
+    warnings: list[str] = []
+    killed: list[int] = []
+    for _ in range(3):
+        pids, notes = collect_install_pids(profiles, rows=list_browser_processes(force=True))
+        warnings.extend(notes)
+        alive = [pid for pid in pids if _pid_alive(pid)]
+        if not alive:
+            break
+        kill_pids(alive)
+        killed.extend(alive)
+        wait_pids_closed(alive, 5)
+    leftover, _notes = collect_install_pids(profiles, rows=list_browser_processes(force=True))
+    leftover = [pid for pid in leftover if _pid_alive(pid)]
+    if leftover:
+        kill_pids(leftover)
+        killed.extend(leftover)
+        wait_pids_closed(leftover, 4)
+    for user_data in unique_user_data(profiles):
+        clear_profile_locks(user_data)
+    time.sleep(0.35)
+    for profile in profiles:
+        mark_clean_exit(profile.user_data, profile.directory)
+    return list(dict.fromkeys(killed)), warnings
+
+
 def collect_install_pids(profiles: list[BrowserProfile], rows: list[dict] | None = None) -> tuple[list[int], list[str]]:
     rows = rows if rows is not None else list_browser_processes()
     allowed_names = {_file_name(item.exe) for item in profiles}
@@ -572,13 +700,34 @@ def default_profile(profiles: list[BrowserProfile]) -> BrowserProfile | None:
     return pool[0] if pool else None
 
 
+def _terminate_pid(pid: int) -> None:
+    try:
+        import ctypes
+
+        handle = ctypes.windll.kernel32.OpenProcess(0x0001, False, int(pid))
+        if handle:
+            ctypes.windll.kernel32.TerminateProcess(handle, 1)
+            ctypes.windll.kernel32.CloseHandle(handle)
+    except Exception:
+        pass
+
+
 def kill_pids(pids: list[int]) -> None:
-    for pid in pids:
-        subprocess.run(["taskkill", "/PID", str(pid)], check=False, capture_output=True, text=True)
-    if pids and not wait_pids_closed(pids, 10):
-        for pid in pids:
-            subprocess.run(["taskkill", "/F", "/PID", str(pid)], check=False, capture_output=True, text=True)
-        wait_pids_closed(pids, 8)
+    # Force-kill immediately. A polite WM_CLOSE makes Chrome/Edge show close or
+    # "profile in use" dialogs and then refuse to start from this app.
+    unique = list(dict.fromkeys(int(pid) for pid in pids if pid))
+    for pid in unique:
+        _run_hidden(
+            ["taskkill", "/F", "/T", "/PID", str(pid)],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    if unique and not wait_pids_closed(unique, 4):
+        for pid in unique:
+            if _pid_alive(pid):
+                _terminate_pid(pid)
+        wait_pids_closed(unique, 4)
 
 
 def _pid_alive(pid: int) -> bool:
@@ -623,32 +772,28 @@ def _row_directory(row: dict) -> str:
 
 
 def list_visible_browser_pids() -> set[int]:
-    script = (
-        "Get-Process -Name chrome,msedge,brave,chromium,vivaldi -ErrorAction SilentlyContinue | "
-        "Where-Object { $_.MainWindowHandle -ne 0 } | "
-        "Select-Object -ExpandProperty Id | ConvertTo-Json -Compress"
-    )
-    try:
-        result = subprocess.run(
-            ["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="ignore",
-            timeout=5,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return set()
-    raw = (result.stdout or "").strip()
-    if not raw:
+    if os.name != "nt":
         return set()
     try:
-        data = json.loads(raw)
-    except json.JSONDecodeError:
+        import ctypes
+        from ctypes import wintypes
+
+        user32 = ctypes.windll.user32
+        found: set[int] = set()
+
+        @ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+        def callback(hwnd, _lparam):
+            if user32.IsWindowVisible(hwnd):
+                pid = wintypes.DWORD(0)
+                user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+                if pid.value:
+                    found.add(int(pid.value))
+            return True
+
+        user32.EnumWindows(callback, 0)
+        return found
+    except Exception:
         return set()
-    if isinstance(data, int):
-        data = [data]
-    return {int(pid) for pid in data if pid}
 
 
 def is_open_session(row: dict, visible_pids: set[int] | None = None) -> bool:
@@ -722,14 +867,26 @@ def discover_profiles() -> list[BrowserProfile]:
             continue
         for raw in _user_data_globs(spec):
             user_data = expand(raw)
-            if not user_data.is_dir():
+            try:
+                if not user_data.is_dir():
+                    continue
+            except OSError:
                 continue
-            for profile in profiles_from_local_state(spec["name"], exe, user_data):
+            try:
+                profiles = profiles_from_local_state(spec["name"], exe, user_data)
+            except (OSError, json.JSONDecodeError, TypeError):
+                continue
+            for profile in profiles:
                 if profile.key in seen:
                     continue
                 seen.add(profile.key)
                 found.append(profile)
-    return mark_running_profiles(found)
+    try:
+        return mark_running_profiles(found)
+    except Exception:
+        for item in found:
+            item.selected = False
+        return found
 
 
 def disable_flags(data: dict, flag_ids: tuple[str, ...] = FLAG_IDS) -> dict:
@@ -933,6 +1090,9 @@ def mark_clean_exit(user_data: Path, directory: str = "") -> None:
                 data["profile"] = profile
             profile["exit_type"] = "Normal"
             profile["exited_cleanly"] = True
+            session = data.get("session")
+            if isinstance(session, dict):
+                session["exited_cleanly"] = True
             prefs_path.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
         except (OSError, json.JSONDecodeError, TypeError):
             continue
@@ -966,15 +1126,25 @@ def strip_gain_extension(user_data: Path) -> int:
     return removed
 
 
-def launch_profile(profile: BrowserProfile, *, fixed: bool = True, gain: float = 3.0) -> None:
+def launch_args(profile: BrowserProfile, *, fixed: bool = True) -> list[str]:
     args = [
         str(profile.exe),
         f"--user-data-dir={profile.user_data}",
         f"--profile-directory={profile.directory}",
+        "--hide-crash-restore-bubble",
     ]
     if fixed:
         args.append(FEATURE_ARG)
-    subprocess.Popen(args)
+    return args
+
+
+def launch_profile(profile: BrowserProfile, *, fixed: bool = True, gain: float = 3.0) -> None:
+    args = launch_args(profile, fixed=fixed)
+    kwargs = {}
+    if os.name == "nt":
+        kwargs["close_fds"] = True
+        kwargs["creationflags"] = 0x01000000  # CREATE_BREAKAWAY_FROM_JOB
+    subprocess.Popen(args, **kwargs)
 
 
 _DISABLE_FEATURES_RE = re.compile(
@@ -1060,7 +1230,7 @@ def _shortcut_roots() -> list[Path]:
 
 def _run_powershell(script: str, timeout: int = 12) -> str:
     try:
-        result = subprocess.run(
+        result = _run_hidden(
             ["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script],
             capture_output=True,
             text=True,
@@ -1426,7 +1596,7 @@ def stop_keeper() -> None:
     except (OSError, ValueError):
         pid = 0
     if pid and _pid_alive(pid):
-        subprocess.run(["taskkill", "/PID", str(pid)], check=False, capture_output=True, text=True)
+        _run_hidden(["taskkill", "/PID", str(pid)], check=False, capture_output=True, text=True)
         wait_pids_closed([pid], 4)
     try:
         KEEP_PID.unlink()
@@ -1473,6 +1643,15 @@ class FixReport:
         if not lines:
             lines.append("没有需要处理的浏览器用户。")
         return "\n".join(lines)
+
+    def merge(self, other: "FixReport") -> None:
+        self.closed.extend(other.closed)
+        self.patched_states.extend(other.patched_states)
+        self.launchers.extend(other.launchers)
+        self.shortcuts.extend(other.shortcuts)
+        self.launched.extend(other.launched)
+        self.warnings.extend(other.warnings)
+        self.errors.extend(other.errors)
 
 
 def profiles_sharing_install(selected: list[BrowserProfile], all_profiles: list[BrowserProfile] | None = None) -> list[BrowserProfile]:
@@ -1565,26 +1744,63 @@ def apply_fix(
         report.warnings.append("没有选中任何浏览器用户。")
         return report
 
-    profiles, ignored = one_install_only(profiles)
-    report.warnings.extend(ignored)
+    for install in group_installs(profiles):
+        report.merge(
+            apply_one_install(
+                install.profiles,
+                enabled=enabled,
+                close_first=close_first,
+                relaunch=relaunch,
+                desktop_copies=desktop_copies,
+                patch_links=patch_links,
+                launcher_dir=launcher_dir,
+                progress=progress,
+                gain=gain,
+            )
+        )
+    note(t("progress_done"))
+    return report
+
+
+def apply_one_install(
+    profiles: list[BrowserProfile],
+    *,
+    enabled: bool = True,
+    close_first: bool = True,
+    relaunch: bool = True,
+    desktop_copies: bool = False,
+    patch_links: bool = False,
+    launcher_dir: Path | None = None,
+    progress=None,
+    gain: float = 3.0,
+) -> FixReport:
+    report = FixReport()
+
+    def note(message: str) -> None:
+        if progress:
+            progress(message)
+
+    if not profiles:
+        return report
+
     browser = profiles[0].browser
 
     launcher_dir = launcher_dir or default_launcher_dir()
     desktop = Path(os.path.expandvars(r"%USERPROFILE%\Desktop"))
 
     if close_first:
-        pids, skip_notes = collect_install_pids(profiles)
+        pids, skip_notes = collect_install_pids(profiles, rows=list_browser_processes(force=True))
         report.warnings.extend(skip_notes)
         if pids:
             note(t("closing_browser", browser=browser))
-            kill_pids(pids)
-            report.closed = [f"pid {pid}" for pid in pids]
-            if not wait_pids_closed(pids, 16):
-                report.errors.append(f"{browser} 还没完全退出，已取消写入，以免动到其它浏览器。")
-                return report
-            time.sleep(0.4)
-            for profile in profiles:
-                mark_clean_exit(profile.user_data, profile.directory)
+        killed, close_notes = close_install(profiles)
+        report.warnings.extend(close_notes)
+        if killed:
+            report.closed = [f"pid {pid}" for pid in killed]
+        leftover, _notes = collect_install_pids(profiles, rows=list_browser_processes(force=True))
+        leftover = [pid for pid in leftover if _pid_alive(pid)]
+        if leftover:
+            report.warnings.append(f"{browser} 仍有进程残留，已清锁并继续打开。")
 
     if not enabled:
         write_keep_target(None, enabled=False)
@@ -1641,25 +1857,26 @@ def apply_fix(
         mark_clean_exit(profile.user_data, profile.directory)
 
     if relaunch:
-        note(t("opening_user"))
-        for profile in profiles:
-            try:
-                launch_profile(profile, fixed=enabled, gain=gain)
-                report.launched.append(profile.label)
-            except Exception as exc:  # noqa: BLE001
-                report.errors.append(f"启动 {profile.label} 失败：{exc}")
-        time.sleep(1.0)
-        if enabled:
-            try:
-                from app_volume import set_browser_volume
+        to_launch = profiles if enabled else [item for item in profiles if item.selected]
+        if to_launch:
+            note(t("opening_user"))
+            for profile in to_launch:
+                try:
+                    launch_profile(profile, fixed=enabled, gain=gain)
+                    report.launched.append(profile.label)
+                except Exception as exc:  # noqa: BLE001
+                    report.errors.append(f"启动 {profile.label} 失败：{exc}")
+            time.sleep(1.0)
+            if enabled:
+                try:
+                    from app_volume import set_browser_volume
 
-                exe_paths = {str(item.exe) for item in profiles}
-                changed = set_browser_volume(1.0, exe_paths=exe_paths)
-                report.warnings.append(f"已把这套浏览器系统音量拉满（会话 {changed} 个）。")
-            except Exception:
-                pass
+                    exe_paths = {str(item.exe) for item in to_launch}
+                    changed = set_browser_volume(1.0, exe_paths=exe_paths)
+                    report.warnings.append(f"已把这套浏览器系统音量拉满（会话 {changed} 个）。")
+                except Exception:
+                    pass
 
-    note(t("progress_done"))
     return report
 
 

@@ -16,10 +16,13 @@ from browser_audio_fix import (
     INSTALLS,
     collect_boost_pids,
     collect_install_pids,
+    clear_profile_locks,
     disable_flags,
     filter_profiles_by_name,
     is_fix_on,
     group_installs,
+    launch_args,
+    list_browser_processes,
     mark_clean_exit,
     mark_running_profiles,
     merge_disable_features,
@@ -296,6 +299,16 @@ class PidScopeTests(unittest.TestCase):
         self.assertEqual([item.browser for item in groups], ["Chrome", "Edge"])
         self.assertEqual(len(groups[0].profiles), 2)
 
+    def test_report_merge_keeps_both_installs(self):
+        from browser_audio_fix import FixReport
+
+        first = FixReport(launched=["Chrome 个人"], closed=["pid 1"])
+        second = FixReport(launched=["Edge 工作"], warnings=["ok"])
+        first.merge(second)
+        self.assertEqual(first.launched, ["Chrome 个人", "Edge 工作"])
+        self.assertEqual(first.closed, ["pid 1"])
+        self.assertEqual(first.warnings, ["ok"])
+
     def test_mark_running_ignores_other_install(self):
         chrome = Path(r"C:\Program Files\Google\Chrome\Application\chrome.exe")
         beta = Path(r"C:\Program Files\Google\Chrome Beta\Application\chrome.exe")
@@ -319,6 +332,36 @@ class PidScopeTests(unittest.TestCase):
         mark_running_profiles(profiles, rows=rows, visible_pids={41})
         self.assertTrue(profiles[0].selected)
         self.assertFalse(profiles[1].selected)
+
+    def test_group_installs_selected_subset_skips_unchecked(self):
+        chrome = Path(r"C:\Program Files\Google\Chrome\Application\chrome.exe")
+        edge = Path(r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe")
+        brave = Path(r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe")
+        chrome_data = Path(r"C:\Users\me\AppData\Local\Google\Chrome\User Data")
+        edge_data = Path(r"C:\Users\me\AppData\Local\Microsoft\Edge\User Data")
+        brave_data = Path(r"C:\Users\me\AppData\Local\BraveSoftware\Brave-Browser\User Data")
+        selected = [
+            BrowserProfile("Chrome", chrome, chrome_data, "Default", "个人"),
+            BrowserProfile("Edge", edge, edge_data, "Default", "工作"),
+        ]
+        groups = group_installs(selected)
+        self.assertEqual([item.browser for item in groups], ["Chrome", "Edge"])
+        self.assertNotIn(
+            "Brave",
+            [item.browser for item in groups],
+        )
+        all_groups = group_installs(
+            selected
+            + [BrowserProfile("Brave", brave, brave_data, "Default", "Brave")]
+        )
+        self.assertEqual([item.browser for item in all_groups], ["Chrome", "Edge", "Brave"])
+
+    def test_list_browser_processes_returns_quickly(self):
+        rows = list_browser_processes(force=True)
+        self.assertIsInstance(rows, list)
+        for row in rows:
+            self.assertIn("pid", row)
+            self.assertIn("name", row)
 
     def test_parse_user_data_with_spaces(self):
         cmd = (
@@ -404,7 +447,12 @@ class PidScopeTests(unittest.TestCase):
             prefs.parent.mkdir()
             state.write_text(json.dumps({"browser": {"exited_cleanly": False}}), encoding="utf-8")
             prefs.write_text(
-                json.dumps({"profile": {"exit_type": "Crashed", "exited_cleanly": False}}),
+                json.dumps(
+                    {
+                        "profile": {"exit_type": "Crashed", "exited_cleanly": False},
+                        "session": {"exited_cleanly": False},
+                    }
+                ),
                 encoding="utf-8",
             )
             mark_clean_exit(root, "Default")
@@ -414,6 +462,28 @@ class PidScopeTests(unittest.TestCase):
             self.assertTrue(state_data["browser"]["exited_cleanly"])
             self.assertEqual(prefs_data["profile"]["exit_type"], "Normal")
             self.assertTrue(prefs_data["profile"]["exited_cleanly"])
+            self.assertTrue(prefs_data["session"]["exited_cleanly"])
+
+    def test_clear_profile_locks_removes_singleton_files(self):
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            (root / "SingletonLock").write_text("host-123", encoding="utf-8")
+            (root / "lockfile").write_text("1", encoding="utf-8")
+            (root / "Local State").write_text("{}", encoding="utf-8")
+            cleared = clear_profile_locks(root)
+            self.assertIn("SingletonLock", cleared)
+            self.assertIn("lockfile", cleared)
+            self.assertFalse((root / "SingletonLock").exists())
+            self.assertTrue((root / "Local State").exists())
+
+    def test_launch_args_hide_restore_bubble(self):
+        chrome = Path(r"C:\Program Files\Google\Chrome\Application\chrome.exe")
+        data = Path(r"C:\Users\me\AppData\Local\Google\Chrome\User Data")
+        profile = BrowserProfile("Chrome", chrome, data, "Default", "个人")
+        args = launch_args(profile, fixed=True)
+        self.assertIn("--hide-crash-restore-bubble", args)
+        self.assertIn("--disable-features=ChromeWideEchoCancellation", args)
+        self.assertTrue(any(item.startswith("--profile-directory=") for item in args))
 
 
 class PersistLaunchTests(unittest.TestCase):

@@ -20,7 +20,7 @@ ICON = ROOT / "desktop" / "assets" / "app.ico"
 
 
 def release_version() -> str:
-    raw = (os.environ.get("GITHUB_REF_NAME") or "1.7.0").lstrip("v")
+    raw = (os.environ.get("GITHUB_REF_NAME") or "1.8.0").lstrip("v")
     parts = [item if item.isdigit() else "0" for item in raw.split(".")]
     while len(parts) < 4:
         parts.append("0")

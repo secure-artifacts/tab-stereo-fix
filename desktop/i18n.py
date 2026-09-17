@@ -31,18 +31,18 @@ STRINGS: dict[str, dict[str, str]] = {
         "language": "语言",
         "header_hint": "关掉 Wide AEC，让浏览器声音进入 VoiceMeeter / AUX / CABLE / Line 1。必须从本软件点「打开」。",
         "help_text": (
-            "1. 选一个用户，点「打开（关掉 Wide AEC）」。浏览器必须由本软件启动。\n"
+            "1. 勾选一个或多个用户，点「打开（关掉 Wide AEC）」。浏览器必须由本软件启动。\n"
             "2. 关掉这套浏览器后，不能从任务栏、开始菜单或桌面图标再开。"
             "那样声音进不了 VoiceMeeter / VoiceMeeter AUX / CABLE / Line 1。\n"
-            "3. 要继续用，再打开本软件，选同一用户，再点「打开」。\n"
-            "4. 要恢复原来的回声消除，选同一用户，点「关闭（恢复）」。\n"
-            "5. 只动你选的这一套。其它浏览器不关。不改 VoiceMeeter / AUX / CABLE / Line 1。\n"
+            "3. 要继续用，再打开本软件，勾选同一批用户，再点「打开」。\n"
+            "4. 要恢复原来的回声消除，勾选同一批用户，点「关闭（恢复）」。\n"
+            "5. 只动你勾选的这些。没勾选的浏览器不关。不改 VoiceMeeter / AUX / CABLE / Line 1。\n"
             "6. 「开机启动」只打开本软件窗口，不会自动打开浏览器。开机后仍要点「打开」。"
         ),
         "scanning": "正在扫描…",
-        "pick_user": "选择一个用户",
+        "pick_user": "勾选用户（可多选）",
         "search_users": "搜索用户名字",
-        "progress_hint": "选好后点「打开」。关掉浏览器后，必须再回到这里点「打开」，不要从图标自己开。",
+        "progress_hint": "可勾选多个用户，再点「打开」。关掉后必须再回到这里点「打开」，不要从图标自己开。",
         "gain": "这套浏览器增益",
         "refresh": "刷新",
         "autostart_on": "开机启动：开",
@@ -52,7 +52,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "open_fix": "打开（关掉 Wide AEC）",
         "log_must_open": "必须从本软件点「打开」启动浏览器。",
         "log_no_icon": "关掉后再从任务栏/开始菜单/桌面图标打开，声音进不了立体声混音。",
-        "log_one_user": "只打开你选的那一个用户。其它浏览器不关、不改音量。",
+        "log_one_user": "只打开你勾选的用户。没勾选的浏览器不关、不改音量。",
         "scan_failed": "扫描失败：{error}",
         "no_browsers": "没有可处理的浏览器。",
         "no_browser_found": "没有找到可用的浏览器。",
@@ -62,7 +62,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "fixed": "已修复",
         "not_fixed": "未修复",
         "install_status": "{browser}（{run} · {fix}）",
-        "current_user": "当前：{label}。只打开这一个。{stay}",
+        "current_user": "已选：{label}。只打开这些。{stay}",
         "others_idle": " 其它浏览器完全不动：{names}。",
         "click_open": "点「打开」启动 {label}。关掉后必须再从本软件打开，从图标自己开声音进不了立体声混音。",
         "autostart": "开机启动",
@@ -70,7 +70,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "autostart_enabled": "已打开开机启动。开机后只出现本软件，仍要点「打开」才能启动浏览器。",
         "autostart_disabled": "已关闭开机启动。",
         "not_selected": "还没选",
-        "pick_a_user": "请先选一个用户。",
+        "pick_a_user": "请先勾选至少一个用户。",
         "volume_ok": "已拉满 {browser} 的系统音量（{count} 个会话）。",
         "others_line": "\n其它浏览器完全不动：{names}",
         "same_running": "\n同一套里正在开的「{names}」会先关掉，然后只打开你选的这个。",
@@ -104,7 +104,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "closing_browser": "正在关闭 {browser}…",
         "writing_settings": "正在写入 {browser} 的设置…",
         "remembering_launch": "正在记住 {browser} 的启动方式…",
-        "opening_user": "正在打开你选的用户…",
+        "opening_user": "正在打开勾选的用户…",
         "progress_done": "完成",
     },
     "en": {
@@ -124,18 +124,18 @@ STRINGS: dict[str, dict[str, str]] = {
         "language": "Language",
         "header_hint": "Turn off Wide AEC so browser audio can reach VoiceMeeter / AUX / CABLE / Line 1. You must click Open in this app.",
         "help_text": (
-            "1. Select a user and click Open (turn off Wide AEC). The browser must be started from this app.\n"
+            "1. Check one or more users and click Open (turn off Wide AEC). The browser must be started from this app.\n"
             "2. After you close that browser, do not open it from the taskbar, Start menu, or desktop shortcut. "
             "Audio will not reach VoiceMeeter / VoiceMeeter AUX / CABLE / Line 1.\n"
-            "3. To keep using it, open this app again, select the same user, and click Open.\n"
-            "4. To restore the original echo cancellation, select the same user and click Close (restore).\n"
-            "5. Only the selected browser is changed. Other browsers stay untouched. VoiceMeeter / AUX / CABLE / Line 1 are not changed.\n"
+            "3. To keep using it, open this app again, check the same users, and click Open.\n"
+            "4. To restore the original echo cancellation, check the same users and click Close (restore).\n"
+            "5. Only the checked browsers are changed. Unchecked browsers stay untouched. VoiceMeeter / AUX / CABLE / Line 1 are not changed.\n"
             "6. Autostart only opens this app, not the browser. After login you still need to click Open."
         ),
         "scanning": "Scanning…",
-        "pick_user": "Select a user",
+        "pick_user": "Select users (multi-select)",
         "search_users": "Search users",
-        "progress_hint": "Select a user and click Open. After closing the browser, come back here and click Open. Do not start it from an icon.",
+        "progress_hint": "Check one or more users and click Open. After closing the browser, come back here and click Open. Do not start it from an icon.",
         "gain": "Gain for this browser",
         "refresh": "Refresh",
         "autostart_on": "Autostart: On",
@@ -145,7 +145,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "open_fix": "Open (turn off Wide AEC)",
         "log_must_open": "You must click Open in this app to start the browser.",
         "log_no_icon": "If you start it from the taskbar, Start menu, or desktop icon, audio will not reach stereo mix.",
-        "log_one_user": "Only the selected user is opened. Other browsers are not closed or retuned.",
+        "log_one_user": "Only checked users are opened. Unchecked browsers are not closed or retuned.",
         "scan_failed": "Scan failed: {error}",
         "no_browsers": "No browsers to process.",
         "no_browser_found": "No Chrome / Edge / Brave / Vivaldi found.",
@@ -155,7 +155,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "fixed": "fixed",
         "not_fixed": "not fixed",
         "install_status": "{browser} ({run} · {fix})",
-        "current_user": "Current: {label}. Only this one will be opened.{stay}",
+        "current_user": "Selected: {label}. Only these will be opened.{stay}",
         "others_idle": " Other browsers stay untouched: {names}.",
         "click_open": "Click Open to start {label}. After it is closed you must open it from this app, or audio will not reach stereo mix.",
         "autostart": "Autostart",
@@ -163,7 +163,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "autostart_enabled": "Autostart is on. At login only this app opens; you still need to click Open.",
         "autostart_disabled": "Autostart is off.",
         "not_selected": "Nothing selected",
-        "pick_a_user": "Select a user first.",
+        "pick_a_user": "Check at least one user first.",
         "volume_ok": "Set {browser} session volume to max ({count} sessions).",
         "others_line": "\nOther browsers stay untouched: {names}",
         "same_running": "\nRunning users in the same install ({names}) will be closed first, then only your selection is opened.",
@@ -197,7 +197,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "closing_browser": "Closing {browser}…",
         "writing_settings": "Writing {browser} settings…",
         "remembering_launch": "Remembering how {browser} starts…",
-        "opening_user": "Opening the selected user…",
+        "opening_user": "Opening the checked users…",
         "progress_done": "Done",
     },
     "ru": {
@@ -217,18 +217,18 @@ STRINGS: dict[str, dict[str, str]] = {
         "language": "Язык",
         "header_hint": "Отключите Wide AEC, чтобы звук браузера шёл в VoiceMeeter / AUX / CABLE / Line 1. Браузер нужно открывать кнопкой «Открыть» в этой программе.",
         "help_text": (
-            "1. Выберите пользователя и нажмите «Открыть (выключить Wide AEC)». Браузер должен запускаться из этой программы.\n"
+            "1. Отметьте одного или нескольких пользователей и нажмите «Открыть (выключить Wide AEC)». Браузер должен запускаться из этой программы.\n"
             "2. После закрытия браузера не открывайте его с панели задач, из меню «Пуск» или с ярлыка. "
             "Звук не попадёт в VoiceMeeter / VoiceMeeter AUX / CABLE / Line 1.\n"
-            "3. Чтобы продолжить, снова откройте эту программу, выберите того же пользователя и нажмите «Открыть».\n"
-            "4. Чтобы вернуть исходное эхоподавление, выберите того же пользователя и нажмите «Закрыть (восстановить)».\n"
-            "5. Меняется только выбранный браузер. Остальные не трогаются. VoiceMeeter / AUX / CABLE / Line 1 не меняются.\n"
+            "3. Чтобы продолжить, снова откройте эту программу, отметьте тех же пользователей и нажмите «Открыть».\n"
+            "4. Чтобы вернуть исходное эхоподавление, отметьте тех же пользователей и нажмите «Закрыть (восстановить)».\n"
+            "5. Меняются только отмеченные браузеры. Неотмеченные не трогаются. VoiceMeeter / AUX / CABLE / Line 1 не меняются.\n"
             "6. Автозапуск открывает только эту программу, не браузер. После входа всё равно нужно нажать «Открыть»."
         ),
         "scanning": "Сканирование…",
-        "pick_user": "Выберите пользователя",
+        "pick_user": "Отметьте пользователей (можно несколько)",
         "search_users": "Поиск пользователей",
-        "progress_hint": "Выберите пользователя и нажмите «Открыть». После закрытия браузера вернитесь сюда и снова нажмите «Открыть», не запускайте его с ярлыка.",
+        "progress_hint": "Можно отметить несколько пользователей и нажать «Открыть». После закрытия браузера вернитесь сюда и снова нажмите «Открыть», не запускайте его с ярлыка.",
         "gain": "Усиление этого браузера",
         "refresh": "Обновить",
         "autostart_on": "Автозапуск: вкл.",
@@ -238,7 +238,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "open_fix": "Открыть (выключить Wide AEC)",
         "log_must_open": "Браузер нужно запускать кнопкой «Открыть» в этой программе.",
         "log_no_icon": "Если открыть его с панели задач, из меню «Пуск» или с ярлыка, звук не попадёт в стереомикшер.",
-        "log_one_user": "Открывается только выбранный пользователь. Другие браузеры не закрываются и не перенастраиваются.",
+        "log_one_user": "Открываются только отмеченные пользователи. Неотмеченные браузеры не закрываются и не перенастраиваются.",
         "scan_failed": "Ошибка сканирования: {error}",
         "no_browsers": "Нет браузеров для обработки.",
         "no_browser_found": "Chrome / Edge / Brave / Vivaldi не найдены.",
@@ -248,7 +248,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "fixed": "исправлено",
         "not_fixed": "не исправлено",
         "install_status": "{browser} ({run} · {fix})",
-        "current_user": "Сейчас: {label}. Будет открыт только он.{stay}",
+        "current_user": "Выбрано: {label}. Будут открыты только они.{stay}",
         "others_idle": " Другие браузеры не затрагиваются: {names}.",
         "click_open": "Нажмите «Открыть», чтобы запустить {label}. После закрытия открывайте его только из этой программы, иначе звук не попадёт в стереомикшер.",
         "autostart": "Автозапуск",
@@ -256,7 +256,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "autostart_enabled": "Автозапуск включён. При входе открывается только эта программа; браузер всё равно нужно открыть кнопкой «Открыть».",
         "autostart_disabled": "Автозапуск выключен.",
         "not_selected": "Не выбрано",
-        "pick_a_user": "Сначала выберите пользователя.",
+        "pick_a_user": "Сначала отметьте хотя бы одного пользователя.",
         "volume_ok": "Громкость {browser} установлена на максимум ({count} сеансов).",
         "others_line": "\nДругие браузеры не затрагиваются: {names}",
         "same_running": "\nОткрытые пользователи этой же установки («{names}») будут закрыты, затем откроется только выбранный.",
@@ -290,7 +290,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "closing_browser": "Закрытие {browser}…",
         "writing_settings": "Запись настроек {browser}…",
         "remembering_launch": "Запоминание способа запуска {browser}…",
-        "opening_user": "Открытие выбранного пользователя…",
+        "opening_user": "Открытие отмеченных пользователей…",
         "progress_done": "Готово",
     },
     "uk": {
@@ -310,18 +310,18 @@ STRINGS: dict[str, dict[str, str]] = {
         "language": "Мова",
         "header_hint": "Вимкніть Wide AEC, щоб звук браузера йшов у VoiceMeeter / AUX / CABLE / Line 1. Браузер потрібно відкривати кнопкою «Відкрити» в цій програмі.",
         "help_text": (
-            "1. Виберіть користувача й натисніть «Відкрити (вимкнути Wide AEC)». Браузер має запускатися з цієї програми.\n"
+            "1. Позначте одного або кількох користувачів і натисніть «Відкрити (вимкнути Wide AEC)». Браузер має запускатися з цієї програми.\n"
             "2. Після закриття браузера не відкривайте його з панелі завдань, меню «Пуск» або ярлика. "
             "Звук не потрапить у VoiceMeeter / VoiceMeeter AUX / CABLE / Line 1.\n"
-            "3. Щоб продовжити, знову відкрийте цю програму, виберіть того самого користувача й натисніть «Відкрити».\n"
-            "4. Щоб повернути початкове приглушення луни, виберіть того самого користувача й натисніть «Закрити (відновити)».\n"
-            "5. Змінюється лише вибраний браузер. Інші не чіпаються. VoiceMeeter / AUX / CABLE / Line 1 не змінюються.\n"
+            "3. Щоб продовжити, знову відкрийте цю програму, позначте тих самих користувачів і натисніть «Відкрити».\n"
+            "4. Щоб повернути початкове приглушення луни, позначте тих самих користувачів і натисніть «Закрити (відновити)».\n"
+            "5. Змінюються лише позначені браузери. Непозначені не чіпаються. VoiceMeeter / AUX / CABLE / Line 1 не змінюються.\n"
             "6. Автозапуск відкриває лише цю програму, не браузер. Після входу все одно потрібно натиснути «Відкрити»."
         ),
         "scanning": "Сканування…",
-        "pick_user": "Виберіть користувача",
+        "pick_user": "Позначте користувачів (можна кілька)",
         "search_users": "Пошук користувачів",
-        "progress_hint": "Виберіть користувача й натисніть «Відкрити». Після закриття браузера поверніться сюди й знову натисніть «Відкрити», не запускайте його з ярлика.",
+        "progress_hint": "Можна позначити кількох користувачів і натиснути «Відкрити». Після закриття браузера поверніться сюди й знову натисніть «Відкрити», не запускайте його з ярлика.",
         "gain": "Підсилення цього браузера",
         "refresh": "Оновити",
         "autostart_on": "Автозапуск: увімк.",
@@ -331,7 +331,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "open_fix": "Відкрити (вимкнути Wide AEC)",
         "log_must_open": "Браузер потрібно запускати кнопкою «Відкрити» в цій програмі.",
         "log_no_icon": "Якщо відкрити його з панелі завдань, меню «Пуск» або ярлика, звук не потрапить у стереомікшер.",
-        "log_one_user": "Відкривається лише вибраний користувач. Інші браузери не закриваються й не переналаштовуються.",
+        "log_one_user": "Відкриваються лише позначені користувачі. Непозначені браузери не закриваються й не переналаштовуються.",
         "scan_failed": "Помилка сканування: {error}",
         "no_browsers": "Немає браузерів для обробки.",
         "no_browser_found": "Chrome / Edge / Brave / Vivaldi не знайдено.",
@@ -341,7 +341,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "fixed": "виправлено",
         "not_fixed": "не виправлено",
         "install_status": "{browser} ({run} · {fix})",
-        "current_user": "Зараз: {label}. Буде відкрито лише його.{stay}",
+        "current_user": "Вибрано: {label}. Буде відкрито лише їх.{stay}",
         "others_idle": " Інші браузери не змінюються: {names}.",
         "click_open": "Натисніть «Відкрити», щоб запустити {label}. Після закриття відкривайте його лише з цієї програми, інакше звук не потрапить у стереомікшер.",
         "autostart": "Автозапуск",
@@ -349,7 +349,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "autostart_enabled": "Автозапуск увімкнено. Після входу відкривається лише ця програма; браузер усе одно потрібно відкрити кнопкою «Відкрити».",
         "autostart_disabled": "Автозапуск вимкнено.",
         "not_selected": "Нічого не вибрано",
-        "pick_a_user": "Спочатку виберіть користувача.",
+        "pick_a_user": "Спочатку позначте принаймні одного користувача.",
         "volume_ok": "Гучність {browser} встановлено на максимум ({count} сеансів).",
         "others_line": "\nІнші браузери не змінюються: {names}",
         "same_running": "\nВідкриті користувачі цієї ж установки («{names}») будуть закриті, потім відкриється лише вибраний.",
@@ -383,7 +383,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "closing_browser": "Закриття {browser}…",
         "writing_settings": "Запис налаштувань {browser}…",
         "remembering_launch": "Запам’ятовування способу запуску {browser}…",
-        "opening_user": "Відкриття вибраного користувача…",
+        "opening_user": "Відкриття позначених користувачів…",
         "progress_done": "Готово",
     },
 }

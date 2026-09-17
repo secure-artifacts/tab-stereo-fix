@@ -1,8 +1,9 @@
-"""GUI: pick one browser install and toggle Wide AEC. Other browsers stay untouched."""
+"""GUI: pick one or more browser users and toggle Wide AEC. Unchecked browsers stay untouched."""
 
 from __future__ import annotations
 
 import json
+import os
 import sys
 import threading
 import traceback
@@ -35,7 +36,6 @@ try:
         discover_profiles,
         filter_profiles_by_name,
         group_installs,
-        one_install_only,
     )
     from desktop.i18n import (
         LANGUAGE_NAMES,
@@ -71,7 +71,6 @@ except ImportError:  # pragma: no cover
         discover_profiles,
         filter_profiles_by_name,
         group_installs,
-        one_install_only,
     )
     from i18n import (
         LANGUAGE_NAMES,
@@ -109,13 +108,18 @@ def load_ui_state() -> dict:
 def save_ui_state(
     user_data=None,
     profile_key: str | None = None,
+    profile_keys: list[str] | None = None,
     gain_percent: int | None = None,
     language: str | None = None,
 ) -> None:
     data = load_ui_state()
     if user_data is not None:
         data["user_data"] = str(user_data)
-    if profile_key is not None:
+    if profile_keys is not None:
+        data["profile_keys"] = [str(item) for item in profile_keys]
+        if profile_keys:
+            data["profile_key"] = str(profile_keys[0])
+    elif profile_key is not None:
         data["profile_key"] = str(profile_key)
     if gain_percent is not None:
         data["gain_percent"] = int(gain_percent)
@@ -180,7 +184,8 @@ class App(tk.Tk):
         self.installs = []
         self.profiles = []
         self._snapshot = []
-        self.choice = tk.StringVar(value="")
+        self.checked_keys: set[str] = set()
+        self._check_vars = []
         self.search_var = tk.StringVar(value="")
         saved_gain = int(load_ui_state().get("gain_percent") or 300)
         self.gain_var = tk.IntVar(value=max(100, min(400, saved_gain)))
@@ -504,8 +509,7 @@ class App(tk.Tk):
             self.toggle_help()
         if self.profiles:
             self._paint_list()
-            if self.selected_profile():
-                self._on_choice()
+            self._on_choice()
 
     def _write_log(self, text: str) -> None:
         self.log.configure(state="normal")
@@ -521,18 +525,19 @@ class App(tk.Tk):
         else:
             self.progress.configure(text=text, bg="#f8fafc", fg="#334155")
 
+    def selected_profiles(self):
+        wanted = set(self.checked_keys)
+        return [item for item in self.profiles if item.key in wanted]
+
     def selected_profile(self):
-        key = self.choice.get()
-        for item in self.profiles:
-            if item.key == key:
-                return item
-        return None
+        items = self.selected_profiles()
+        return items[0] if items else None
 
     def refresh(self) -> None:
         if self.busy or self._refreshing:
             return
         self._refreshing = True
-        last = self.choice.get()
+        last = set(self.checked_keys)
         self.status.configure(text=t("scanning"), bg="#e0e7ff", fg="#1e3a8a")
 
         def work() -> None:
@@ -554,7 +559,7 @@ class App(tk.Tk):
         self._refreshing = False
         self.status.configure(text=t("scan_failed", error=exc), bg="#fef2f2", fg="#991b1b")
 
-    def _render_profiles(self, profiles, snapshot, last: str) -> None:
+    def _render_profiles(self, profiles, snapshot, last: set[str]) -> None:
         self._refreshing = False
         self.profiles = profiles
         self._snapshot = snapshot
@@ -562,18 +567,29 @@ class App(tk.Tk):
         if self.busy:
             return
         if not profiles:
+            self.checked_keys = set()
             self._paint_list()
             self.status.configure(text=t("no_browsers"), bg="#fef3c7", fg="#92400e")
             return
 
-        remembered = last or str(load_ui_state().get("profile_key") or "")
         keys = {item.key for item in profiles}
-        if remembered in keys:
-            pick = remembered
-        else:
+        remembered = set(last)
+        if not remembered:
+            raw = load_ui_state().get("profile_keys")
+            if isinstance(raw, list):
+                remembered = {str(item) for item in raw}
+            else:
+                one = str(load_ui_state().get("profile_key") or "")
+                if one:
+                    remembered = {one}
+        remembered &= keys
+        if not remembered:
             target = default_profile(profiles)
-            pick = target.key if target else profiles[0].key
-        self.choice.set(pick)
+            if target:
+                remembered = {target.key}
+            elif profiles:
+                remembered = {profiles[0].key}
+        self.checked_keys = remembered
         self._refresh_sidebar()
         self._paint_list()
         self._on_choice()
@@ -756,6 +772,7 @@ class App(tk.Tk):
             for child in self.list_frame.winfo_children():
                 child.destroy()
             self._cat_vars = []
+            self._check_vars = []
             if not self.profiles:
                 tk.Label(
                     self.list_frame,
@@ -793,12 +810,13 @@ class App(tk.Tk):
                     extra = f"（{' · '.join(bits)}）" if bits else ""
                     row = tk.Frame(self.list_frame, bg="#ffffff")
                     row.pack(fill="x", pady=1)
-                    ttk.Radiobutton(
+                    checked = tk.BooleanVar(value=item.key in self.checked_keys)
+                    self._check_vars.append(checked)
+                    ttk.Checkbutton(
                         row,
                         text=f"{item.display_name}{extra}",
-                        value=item.key,
-                        variable=self.choice,
-                        command=self._on_choice,
+                        variable=checked,
+                        command=lambda key=item.key, var=checked: self._toggle_key(key, var),
                     ).pack(side="left", anchor="w")
                     var = tk.StringVar(value=category_label(category_of(item.key)))
                     self._cat_vars.append(var)
@@ -828,29 +846,42 @@ class App(tk.Tk):
         finally:
             self._painting = False
 
+    def _toggle_key(self, key: str, var: tk.BooleanVar) -> None:
+        if var.get():
+            self.checked_keys.add(key)
+        else:
+            self.checked_keys.discard(key)
+        self._on_choice()
+
     def _on_choice(self) -> None:
-        selected = self.selected_profile()
+        selected = self.selected_profiles()
         if not selected:
+            save_ui_state(profile_keys=[], gain_percent=int(self.gain_var.get()))
+            self.status.configure(text=t("pick_a_user"), bg="#fef2f2", fg="#991b1b")
+            self._set_progress(t("pick_a_user"))
             return
+        labels = _join_names([item.label for item in selected])
         save_ui_state(
-            user_data=selected.user_data,
-            profile_key=selected.key,
+            user_data=selected[0].user_data,
+            profile_keys=[item.key for item in selected],
             gain_percent=int(self.gain_var.get()),
         )
+        selected_keys = {item.key for item in selected}
+        selected_data = {item.user_data for item in selected}
         others = sorted(
             {
                 item.browser
                 for item in self.profiles
-                if item.selected and item.key != selected.key and item.user_data != selected.user_data
+                if item.selected and item.key not in selected_keys and item.user_data not in selected_data
             }
         )
         stay = t("others_idle", names=_join_names(others)) if others else ""
         self.status.configure(
-            text=t("current_user", label=selected.label, stay=stay),
+            text=t("current_user", label=labels, stay=stay),
             bg="#ecfdf3",
             fg="#166534",
         )
-        self._set_progress(t("click_open", label=selected.label))
+        self._set_progress(t("click_open", label=labels))
 
     def _on_gain(self, _value=None) -> None:
         value = int(round(float(self.gain_var.get()) / 25) * 25)
@@ -877,19 +908,19 @@ class App(tk.Tk):
         )
 
     def boost_volume(self) -> None:
-        selected = self.selected_profile()
+        selected = self.selected_profiles()
         if not selected:
             messagebox.showwarning(t("not_selected"), t("pick_a_user"))
             return
-        exe = str(selected.exe)
-        browser = selected.browser
+        exe_paths = {str(item.exe) for item in selected}
+        browsers = _join_names(sorted({item.browser for item in selected}))
 
         def work() -> None:
-            changed = set_browser_volume(1.0, exe_paths={exe})
+            changed = set_browser_volume(1.0, exe_paths=exe_paths)
             self.after(
                 0,
                 lambda: self._set_progress(
-                    t("volume_ok", browser=browser, count=changed),
+                    t("volume_ok", browser=browsers, count=changed),
                     ok=True,
                 ),
             )
@@ -899,23 +930,24 @@ class App(tk.Tk):
     def apply(self, enabled: bool) -> None:
         if self.busy:
             return
-        selected = self.selected_profile()
+        selected = self.selected_profiles()
         if not selected:
             messagebox.showwarning(t("not_selected"), t("pick_a_user"))
             return
-        profiles, _ignored = one_install_only([selected])
         gain = max(1.0, min(4.0, int(self.gain_var.get()) / 100))
+        labels = _join_names([item.label for item in selected])
+        relaunch = True if enabled else any(item.selected for item in selected)
         self.busy = True
         self.on_btn.configure(state="disabled")
         self.off_btn.configure(state="disabled")
-        self._set_progress(t("opening", label=selected.label))
+        self._set_progress(t("opening", label=labels))
 
         def work() -> None:
             report = apply_fix(
-                profiles,
+                selected,
                 enabled=enabled,
                 close_first=True,
-                relaunch=True if enabled else selected.selected,
+                relaunch=relaunch,
                 desktop_copies=False,
                 patch_links=False,
                 gain=gain,
@@ -938,7 +970,22 @@ class App(tk.Tk):
         self._set_progress(t("done_open") if enabled else t("done_close"), ok=True)
 
 
+def hide_console() -> None:
+    if os.name != "nt":
+        return
+    try:
+        import ctypes
+
+        hwnd = ctypes.windll.kernel32.GetConsoleWindow()
+        if hwnd:
+            ctypes.windll.user32.ShowWindow(hwnd, 0)
+        ctypes.windll.kernel32.FreeConsole()
+    except Exception:
+        pass
+
+
 def main() -> None:
+    hide_console()
     try:
         app = App()
         app.mainloop()

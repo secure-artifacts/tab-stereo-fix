@@ -17,10 +17,10 @@ from browser_audio_fix import (
     _PROFILE_RE,
     _USER_DATA_RE,
     _exe_from_command,
-    collect_install_pids,
+    _run_hidden,
+    close_install,
     discover_profiles,
     flags_disabled,
-    kill_pids,
     launch_profile,
     one_install_only,
     patch_local_state,
@@ -148,7 +148,7 @@ def process_info(pid: int) -> dict | None:
         "if ($p) { $p | Select-Object ProcessId,ParentProcessId,Name,ExecutablePath,CommandLine | ConvertTo-Json -Compress }"
     )
     try:
-        result = subprocess.run(
+        result = _run_hidden(
             ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script],
             capture_output=True,
             text=True,
@@ -227,9 +227,7 @@ def apply_toggle(enabled: bool, caller: dict | None = None) -> dict:
         return {"ok": False, "error": "没有定位到当前这个浏览器，已取消，以免关掉其它浏览器。"}
     profiles, _ignored = one_install_only(profiles)
 
-    pids, _notes = collect_install_pids(profiles)
-    if pids:
-        kill_pids(pids)
+    close_install(profiles)
 
     for user_data in unique_user_data(profiles):
         if enabled:
@@ -308,7 +306,7 @@ def main() -> int:
     if action == "set":
         enabled = bool(message.get("enabled"))
         send_message({"ok": True, "restarting": True, "enabled": enabled})
-        flags = 0x00000008 | 0x00000200
+        flags = 0x08000000  # CREATE_NO_WINDOW
         apply_cmd = [sys.executable, str(Path(__file__).resolve()), "--apply", "--on" if enabled else "--off"]
         if caller:
             apply_cmd.extend(

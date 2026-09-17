@@ -49,10 +49,9 @@ if not exist "config" mkdir "config"
 > "config\python.exe.path" echo %PYTHON%
 
 :run
-"%PYTHON%" -m desktop.app %*
-if errorlevel 1 (
-  echo.
-  echo 启动失败。
-  if exist "config\last-error.txt" type "config\last-error.txt"
-  pause
+set "PY=%PYTHON%"
+if /i "%PYTHON:~-10%"=="python.exe" (
+  if exist "%PYTHON:~0,-10%pythonw.exe" set "PY=%PYTHON:~0,-10%pythonw.exe"
 )
+start "" "%PY%" -m desktop.app %*
+exit /b 0
